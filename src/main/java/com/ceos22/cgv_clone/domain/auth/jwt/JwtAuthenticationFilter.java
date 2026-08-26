@@ -1,41 +1,35 @@
 package com.ceos22.cgv_clone.domain.auth.jwt;
 
+import com.ceos22.cgv_clone.common.error.CustomException;
+import com.ceos22.cgv_clone.common.error.ErrorCode;
+import com.ceos22.cgv_clone.common.error.ErrorResponseWriter;
 import com.ceos22.cgv_clone.domain.auth.jwt.error.BlacklistedTokenException;
+import com.ceos22.cgv_clone.domain.auth.jwt.error.JwtException;
 import com.ceos22.cgv_clone.domain.auth.service.RedisService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.servlet.HandlerExceptionResolver;
 
 import java.io.IOException;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final String BLACKLIST_PREFIX = "BL:";
+
     private final JwtTokenProvider jwtTokenProvider;
-    // Filter에서 발생하는 Error를 GlobalExceptionHandler으로 위임
-    private final HandlerExceptionResolver handlerExceptionResolver;
     private final RedisService redisService;
-
-    public JwtAuthenticationFilter(
-            JwtTokenProvider jwtTokenProvider,
-            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver,
-            RedisService redisService) {
-        this.jwtTokenProvider = jwtTokenProvider;
-        this.handlerExceptionResolver = resolver;
-        this.redisService = redisService;
-    }
-
-    private static final String BlACKLIST_PREFIX = "BL:";
+    private final ErrorResponseWriter errorResponseWriter;
 
     @Override
     protected void doFilterInternal(
@@ -45,24 +39,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         try {
-            String token = jwtTokenProvider.getAccessToken(request);
-
-            if(token != null && !token.isEmpty()) {
-                String blackListKey = BlACKLIST_PREFIX + token;
-                if (redisService.hasKey(blackListKey)) {
-                    SecurityContextHolder.clearContext();
-                    throw new BlacklistedTokenException();
-                }
-
-                jwtTokenProvider.validateToken(token);
-
-                Authentication authentication = jwtTokenProvider.getAuthentication(token);
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            }
-            filterChain.doFilter(request, response);
+            authenticate(request);
+        } catch (JwtException e) {
+            SecurityContextHolder.clearContext();
+            log.warn("JWT 인증 실패 [{}] - {} {} : {}",
+                    e.getErrorCode().getCode(), request.getMethod(), request.getRequestURI(), e.getMessage());
+            errorResponseWriter.write(response, e.getErrorCode());
+            return;
+        } catch (CustomException e) {
+            SecurityContextHolder.clearContext();
+            log.warn("사용자 인증 실패 [{}] - {} {}",
+                    e.getErrorCode().getCode(), request.getMethod(), request.getRequestURI());
+            errorResponseWriter.write(response, ErrorCode.AUTHENTICATION_FAILED);
+            return;
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
-            handlerExceptionResolver.resolveException(request, response, null, e);
+            log.error("인증 필터 처리 중 오류 - {} {}", request.getMethod(), request.getRequestURI(), e);
+            errorResponseWriter.write(response, ErrorCode.INTERNAL_SERVER_ERROR);
+            return;
         }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private void authenticate(HttpServletRequest request) {
+        String token = jwtTokenProvider.getAccessToken(request);
+
+        // 토큰이 없으면 인증하지 않고 통과시킨다.
+        // 이 요청에 인증이 필요한지는 뒤의 AuthorizationFilter가 판단하며,
+        // 필요한 경우 CustomAuthenticationEntryPoint가 401을 응답한다.
+        if (token == null || token.isEmpty()) {
+            return;
+        }
+
+        if (redisService.hasKey(BLACKLIST_PREFIX + token)) {
+            throw new BlacklistedTokenException();
+        }
+
+        jwtTokenProvider.validateToken(token);
+
+        Authentication authentication = jwtTokenProvider.getAuthentication(token);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 }
