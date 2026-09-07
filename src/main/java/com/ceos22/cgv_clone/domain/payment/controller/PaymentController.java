@@ -24,7 +24,7 @@ public class PaymentController {
             @Valid @RequestBody PaymentCreateRequest request,
             @AuthenticationPrincipal Member member
     ) {
-        PaymentResponse payment = paymentService.executePayment(member, request);
+        PaymentResponse payment = paymentService.executePayment(member.getMemberId(), request);
         return ApiResponse.success(SuccessCode.CREATE_SUCCESS, payment);
     }
 
@@ -33,7 +33,7 @@ public class PaymentController {
             @PathVariable String paymentId,
             @AuthenticationPrincipal Member member
     ) {
-        PaymentResponse payment = paymentService.cancelPayment(member, paymentId);
+        PaymentResponse payment = paymentService.cancelPayment(member.getMemberId(), paymentId);
         return ApiResponse.success(SuccessCode.UPDATE_SUCCESS, payment);
     }
 
@@ -42,7 +42,7 @@ public class PaymentController {
             @PathVariable String paymentId,
             @AuthenticationPrincipal Member member
     ) {
-        PaymentResponse payment = paymentService.getPayment(member, paymentId);
+        PaymentResponse payment = paymentService.getPayment(member.getMemberId(), paymentId);
         return ApiResponse.success(SuccessCode.GET_SUCCESS, payment);
     }
 
@@ -51,7 +51,7 @@ public class PaymentController {
             @PathVariable Long orderId,
             @AuthenticationPrincipal Member member
     ) {
-        PaymentResponse payment = paymentService.getPaymentByOrder(member, orderId);
+        PaymentResponse payment = paymentService.getPaymentByOrder(member.getMemberId(), orderId);
         return ApiResponse.success(SuccessCode.GET_SUCCESS, payment);
     }
 }
