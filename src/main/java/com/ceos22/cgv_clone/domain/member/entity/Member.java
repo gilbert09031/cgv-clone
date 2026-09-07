@@ -8,19 +8,13 @@ import com.ceos22.cgv_clone.domain.member.vo.MemberName;
 import com.ceos22.cgv_clone.domain.member.vo.Password;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.Collections;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
-public class Member extends BaseEntity implements UserDetails {
+public class Member extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -73,21 +67,5 @@ public class Member extends BaseEntity implements UserDetails {
 
     public boolean matchesPassword(String rawPassword, PasswordEncryptor passwordEncryptor) {
         return this.password.matches(rawPassword, passwordEncryptor);
-    }
-
-    // UserDetails 구현
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.name()));
-    }
-
-    @Override
-    public String getPassword() {
-        return String.valueOf(password);
-    }
-
-    @Override
-    public String getUsername() {
-        return String.valueOf(memberId);
     }
 }

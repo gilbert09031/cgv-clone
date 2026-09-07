@@ -2,7 +2,7 @@ package com.ceos22.cgv_clone.domain.order.controller;
 
 import com.ceos22.cgv_clone.common.error.SuccessCode;
 import com.ceos22.cgv_clone.common.response.ApiResponse;
-import com.ceos22.cgv_clone.domain.member.entity.Member;
+import com.ceos22.cgv_clone.domain.auth.security.CustomUserDetails;
 import com.ceos22.cgv_clone.domain.order.dto.request.OrderCreateRequest;
 import com.ceos22.cgv_clone.domain.order.dto.response.OrderResponse;
 import com.ceos22.cgv_clone.domain.order.service.OrderService;
@@ -24,27 +24,27 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @Valid @RequestBody OrderCreateRequest request,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        OrderResponse order = orderService.createOrder(member.getMemberId(), request);
+        OrderResponse order = orderService.createOrder(userDetails.getMemberId(), request);
         return ApiResponse.success(SuccessCode.CREATE_SUCCESS, order);
     }
 
 
     @GetMapping// Paging 추가하기
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getMyOrders(
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        List<OrderResponse> orders = orderService.getMyOrders(member.getMemberId());
+        List<OrderResponse> orders = orderService.getMyOrders(userDetails.getMemberId());
         return ApiResponse.success(SuccessCode.GET_SUCCESS, orders);
     }
 
     @GetMapping("/{orderId}")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrderDetail(
             @PathVariable Long orderId,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        OrderResponse order = orderService.getOrderDetail(member.getMemberId(), orderId);
+        OrderResponse order = orderService.getOrderDetail(userDetails.getMemberId(), orderId);
         return ApiResponse.success(SuccessCode.GET_SUCCESS, order);
     }
 }

@@ -3,7 +3,7 @@ package com.ceos22.cgv_clone.common.config;
 import com.ceos22.cgv_clone.common.security.CustomAccessDeniedHandler;
 import com.ceos22.cgv_clone.common.security.CustomAuthenticationEntryPoint;
 import com.ceos22.cgv_clone.domain.auth.jwt.JwtAuthenticationFilter;
-import com.ceos22.cgv_clone.domain.auth.service.CustomUserDetailService;
+import com.ceos22.cgv_clone.domain.auth.security.CustomUserDetailsService;
 import com.ceos22.cgv_clone.domain.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,7 +90,7 @@ public class SecurityConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return new CustomUserDetailService(memberRepository);
+        return new CustomUserDetailsService(memberRepository);
     }
 
     @Bean
