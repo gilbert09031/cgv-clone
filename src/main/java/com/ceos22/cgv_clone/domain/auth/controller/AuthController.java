@@ -2,6 +2,7 @@ package com.ceos22.cgv_clone.domain.auth.controller;
 
 import com.ceos22.cgv_clone.common.error.SuccessCode;
 import com.ceos22.cgv_clone.common.response.ApiResponse;
+import com.ceos22.cgv_clone.domain.auth.security.CustomUserDetails;
 import com.ceos22.cgv_clone.domain.auth.service.AuthService;
 import com.ceos22.cgv_clone.domain.member.dto.request.LoginRequest;
 import com.ceos22.cgv_clone.domain.member.dto.request.LogoutRequest;
@@ -12,6 +13,7 @@ import com.ceos22.cgv_clone.domain.member.dto.response.TokenResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -47,9 +49,10 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
-            @Valid @RequestBody LogoutRequest request
+            @Valid @RequestBody LogoutRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        authService.logout(request.accessToken());
+        authService.logout(userDetails.getMemberId(), request.accessToken());
         return ApiResponse.success(SuccessCode.LOGOUT_SUCCESS);
     }
 }

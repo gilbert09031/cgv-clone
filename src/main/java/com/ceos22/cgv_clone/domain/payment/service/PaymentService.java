@@ -2,7 +2,6 @@ package com.ceos22.cgv_clone.domain.payment.service;
 
 import com.ceos22.cgv_clone.common.error.CustomException;
 import com.ceos22.cgv_clone.common.error.ErrorCode;
-import com.ceos22.cgv_clone.domain.member.entity.Member;
 import com.ceos22.cgv_clone.domain.order.entity.Order;
 import com.ceos22.cgv_clone.domain.order.entity.OrderStatus;
 import com.ceos22.cgv_clone.domain.order.repository.OrderRepository;
@@ -46,11 +45,11 @@ public class PaymentService {
     private String currency;
 
     @Transactional
-    public PaymentResponse executePayment(Member member, PaymentCreateRequest request) {
+    public PaymentResponse executePayment(Long memberId, PaymentCreateRequest request) {
 
         Order order = findOrderById(request.orderId());
 
-        validateOrderOwner(order, member);
+        validateOrderOwner(order, memberId);
         validateOrderPending(order);
         validateDuplicatePayment(order);
 
@@ -63,12 +62,12 @@ public class PaymentService {
     }
 
     @Transactional
-    public PaymentResponse cancelPayment(Member member, String paymentId) {
+    public PaymentResponse cancelPayment(Long memberId, String paymentId) {
 
         Payment payment = findPaymentByPaymentId(paymentId);
         Order order = payment.getOrder();
 
-        validateOrderOwner(order, member);
+        validateOrderOwner(order, memberId);
 
         try {
             paymentClient.cancelPayment(paymentId);
@@ -83,15 +82,15 @@ public class PaymentService {
     }
 
 
-    public PaymentResponse getPayment(Member member, String paymentId) {
+    public PaymentResponse getPayment(Long memberId, String paymentId) {
         Payment payment = findPaymentByPaymentId(paymentId);
-        validateOrderOwner(payment.getOrder(), member);
+        validateOrderOwner(payment.getOrder(), memberId);
         return PaymentResponse.from(payment);
     }
 
-    public PaymentResponse getPaymentByOrder(Member member, Long orderId) {
+    public PaymentResponse getPaymentByOrder(Long memberId, Long orderId) {
         Order order = findOrderById(orderId);
-        validateOrderOwner(order, member);
+        validateOrderOwner(order, memberId);
         Payment payment = findPaymentByOrder(order);
         return PaymentResponse.from(payment);
     }
@@ -178,8 +177,8 @@ public class PaymentService {
 
     //=================================================================================================================
 
-    private void validateOrderOwner(Order order, Member member) {
-        if (!order.getMember().getMemberId().equals(member.getMemberId())) {
+    private void validateOrderOwner(Order order, Long memberId) {
+        if (!order.getMember().getMemberId().equals(memberId)) {
             throw new CustomException(ErrorCode.AUTHORIZATION_FAILED);
         }
     }

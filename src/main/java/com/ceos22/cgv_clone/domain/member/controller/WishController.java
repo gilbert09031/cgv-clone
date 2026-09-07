@@ -2,9 +2,9 @@ package com.ceos22.cgv_clone.domain.member.controller;
 
 import com.ceos22.cgv_clone.common.error.SuccessCode;
 import com.ceos22.cgv_clone.common.response.ApiResponse;
+import com.ceos22.cgv_clone.domain.auth.security.CustomUserDetails;
 import com.ceos22.cgv_clone.domain.member.dto.response.MovieWishResponse;
 import com.ceos22.cgv_clone.domain.member.dto.response.TheaterWishResponse;
-import com.ceos22.cgv_clone.domain.member.entity.Member;
 import com.ceos22.cgv_clone.domain.member.service.WishService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,52 +23,52 @@ public class WishController {
     @PostMapping("movies/{movieId}")
     public ResponseEntity<ApiResponse<MovieWishResponse>> addMovieWish(
             @PathVariable Long movieId,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        MovieWishResponse response = wishService.addMovieWish(member.getMemberId(), movieId);
+        MovieWishResponse response = wishService.addMovieWish(userDetails.getMemberId(), movieId);
         return ApiResponse.success(SuccessCode.CREATE_SUCCESS, response);
     }
 
     @DeleteMapping("movies/{movieId}")
     public ResponseEntity<ApiResponse<Void>> removeMovieWish(
             @PathVariable Long movieId,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        wishService.removeMovieWish(member.getMemberId(), movieId);
+        wishService.removeMovieWish(userDetails.getMemberId(), movieId);
         return ApiResponse.success(SuccessCode.DELETE_SUCCESS);
     }
 
     @GetMapping("/movies")
     public ResponseEntity<ApiResponse<List<MovieWishResponse>>> getMovieWishes(
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        List<MovieWishResponse> response = wishService.getMovieWishes(member.getMemberId());
+        List<MovieWishResponse> response = wishService.getMovieWishes(userDetails.getMemberId());
         return ApiResponse.success(SuccessCode.GET_SUCCESS, response);
     }
 
     @PostMapping("/theaters/{theaterId}")
     public ResponseEntity<ApiResponse<TheaterWishResponse>> addTheaterWish(
             @PathVariable Long theaterId,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        TheaterWishResponse response = wishService.addTheaterWish(member.getMemberId(), theaterId);
+        TheaterWishResponse response = wishService.addTheaterWish(userDetails.getMemberId(), theaterId);
         return ApiResponse.success(SuccessCode.CREATE_SUCCESS, response);
     }
 
     @DeleteMapping("/theaters/{theaterId}")
     public ResponseEntity<ApiResponse<Void>> removeTheaterWish(
             @PathVariable Long theaterId,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        wishService.removeTheaterWish(member.getMemberId(), theaterId);
+        wishService.removeTheaterWish(userDetails.getMemberId(), theaterId);
         return ApiResponse.success(SuccessCode.DELETE_SUCCESS);
     }
 
     @GetMapping("/theaters")
     public ResponseEntity<ApiResponse<List<TheaterWishResponse>>> getTheaterWishes(
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        List<TheaterWishResponse> responses = wishService.getTheaterWishes(member.getMemberId());
+        List<TheaterWishResponse> responses = wishService.getTheaterWishes(userDetails.getMemberId());
         return ApiResponse.success(SuccessCode.GET_SUCCESS, responses);
     }
 }

@@ -1,29 +1,27 @@
 package com.ceos22.cgv_clone.domain.member.entity;
 
 import com.ceos22.cgv_clone.common.entity.BaseEntity;
+import com.ceos22.cgv_clone.domain.member.service.PasswordEncryptor;
 import com.ceos22.cgv_clone.domain.member.vo.BirthDate;
 import com.ceos22.cgv_clone.domain.member.vo.Email;
 import com.ceos22.cgv_clone.domain.member.vo.MemberName;
 import com.ceos22.cgv_clone.domain.member.vo.Password;
 import jakarta.persistence.*;
-import lombok.*;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.Collections;
 
 @Entity
+@Table(name = "member")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
-public class Member extends BaseEntity implements UserDetails {
+@NoArgsConstructor(access = AccessLevel.PROTECTED)   // JPA 전용 통로. 애플리케이션 코드는 signUp()만 사용한다.
+public class Member extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "member_id")
     private Long memberId;
 
     @Embedded
@@ -39,7 +37,7 @@ public class Member extends BaseEntity implements UserDetails {
     private BirthDate birthDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "role", length = 20, nullable = false)
     private Role role;
 
     private Member(Email email, Password password, MemberName name, BirthDate birthDate, Role role) {
@@ -50,39 +48,23 @@ public class Member extends BaseEntity implements UserDetails {
         this.role = role;
     }
 
-    public static Member of(
+    public static Member signUp(
             String email,
             String rawPassword,
             String name,
             LocalDate birthDate,
-            PasswordEncoder passwordEncoder
+            PasswordEncryptor passwordEncryptor
     ) {
         return new Member(
                 Email.from(email),
-                Password.from(rawPassword, passwordEncoder),
+                Password.from(rawPassword, passwordEncryptor),
                 MemberName.from(name),
                 BirthDate.from(birthDate),
                 Role.USER
         );
     }
 
-    public boolean matchesPassword(String rawPassword, PasswordEncoder passwordEncoder) {
-        return this.password.matches(rawPassword, passwordEncoder);
-    }
-
-    // UserDetails 구현
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role.name()));
-    }
-
-    @Override
-    public String getPassword() {
-        return String.valueOf(password);
-    }
-
-    @Override
-    public String getUsername() {
-        return String.valueOf(memberId);
+    public boolean matchesPassword(String rawPassword, PasswordEncryptor passwordEncryptor) {
+        return this.password.matches(rawPassword, passwordEncryptor);
     }
 }

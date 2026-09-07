@@ -2,7 +2,7 @@ package com.ceos22.cgv_clone.domain.order.controller;
 
 import com.ceos22.cgv_clone.common.error.SuccessCode;
 import com.ceos22.cgv_clone.common.response.ApiResponse;
-import com.ceos22.cgv_clone.domain.member.entity.Member;
+import com.ceos22.cgv_clone.domain.auth.security.CustomUserDetails;
 import com.ceos22.cgv_clone.domain.order.dto.request.CartItemRequest;
 import com.ceos22.cgv_clone.domain.order.dto.request.CartItemUpdateRequest;
 import com.ceos22.cgv_clone.domain.order.dto.response.CartResponse;
@@ -23,18 +23,18 @@ public class CartController {
     @GetMapping("/{storeId}")
     public ResponseEntity<ApiResponse<CartResponse>> getCart(
             @PathVariable Long storeId,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        CartResponse cart = cartService.getCart(member.getMemberId(), storeId);
+        CartResponse cart = cartService.getCart(userDetails.getMemberId(), storeId);
         return ApiResponse.success(SuccessCode.GET_SUCCESS, cart);
     }
 
     @PostMapping("/items")
     public ResponseEntity<ApiResponse<CartResponse>> addToCart(
             @Valid @RequestBody CartItemRequest request,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        CartResponse cart = cartService.addToCart(member.getMemberId(), request);
+        CartResponse cart = cartService.addToCart(userDetails.getMemberId(), request);
         return ApiResponse.success(SuccessCode.CREATE_SUCCESS, cart);
     }
 
@@ -43,9 +43,9 @@ public class CartController {
             @PathVariable Long storeId,
             @PathVariable Long productId,
             @Valid @RequestBody CartItemUpdateRequest request,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        CartResponse cart = cartService.updateCartItem(member.getMemberId(), storeId, productId, request.quantity());
+        CartResponse cart = cartService.updateCartItem(userDetails.getMemberId(), storeId, productId, request.quantity());
         return ApiResponse.success(SuccessCode.UPDATE_SUCCESS, cart);
     }
 
@@ -53,18 +53,18 @@ public class CartController {
     public ResponseEntity<ApiResponse<CartResponse>> removeFromCart(
             @PathVariable Long storeId,
             @PathVariable Long productId,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        CartResponse cart = cartService.removeFromCart(member.getMemberId(), storeId, productId);
+        CartResponse cart = cartService.removeFromCart(userDetails.getMemberId(), storeId, productId);
         return ApiResponse.success(SuccessCode.DELETE_SUCCESS, cart);
     }
 
     @DeleteMapping("/{storeId}")
     public ResponseEntity<ApiResponse<Void>> clearCart(
             @PathVariable Long storeId,
-            @AuthenticationPrincipal Member member
+            @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        cartService.clearCart(member.getMemberId(), storeId);
+        cartService.clearCart(userDetails.getMemberId(), storeId);
         return ApiResponse.success(SuccessCode.DELETE_SUCCESS);
     }
 }

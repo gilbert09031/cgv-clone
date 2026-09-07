@@ -36,6 +36,12 @@ public class ApiResponse<T> {
     public static <T> ResponseEntity<ApiResponse<T>> error(ErrorCode errorCode) {
         return ResponseEntity
                 .status(errorCode.getStatus())
-                .body(new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), null));
+                .body(errorBody(errorCode));
+    }
+
+    // 실패 시 응답 본문만 생성 (필터 계층)
+    // 필터는 ResponseEntity를 반환할 수 없어 본문을 직접 직렬화
+    public static <T> ApiResponse<T> errorBody(ErrorCode errorCode) {
+        return new ApiResponse<>(false, errorCode.getCode(), errorCode.getMessage(), null);
     }
 }
