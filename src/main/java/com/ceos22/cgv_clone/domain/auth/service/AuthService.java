@@ -11,12 +11,12 @@ import com.ceos22.cgv_clone.domain.member.dto.response.MemberInfoResponse;
 import com.ceos22.cgv_clone.domain.member.dto.response.TokenResponse;
 import com.ceos22.cgv_clone.domain.member.entity.Member;
 import com.ceos22.cgv_clone.domain.member.repository.MemberRepository;
+import com.ceos22.cgv_clone.domain.member.service.PasswordEncryptor;
 import com.ceos22.cgv_clone.domain.member.vo.Email;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 public class AuthService {
 
     private final MemberRepository memberRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final PasswordEncryptor passwordEncryptor;
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisService redisService;
 
@@ -42,12 +42,12 @@ public class AuthService {
         Email email = request.toEmail();
         validateDuplicateEmail(email);
 
-        Member member = Member.of(
+        Member member = Member.signUp(
                 request.email(),
                 request.password(),
                 request.name(),
                 request.birthDate(),
-                passwordEncoder
+                passwordEncryptor
         );
 
         Member savedMember = memberRepository.save(member);
@@ -118,7 +118,7 @@ public class AuthService {
     }
 
     private void validatePassword(Member member, String rawPassword) {
-        if(!member.matchesPassword(rawPassword, passwordEncoder)) {
+        if(!member.matchesPassword(rawPassword, passwordEncryptor)) {
             throw new CustomException(ErrorCode.INVALID_PASSWORD);
         }
     }

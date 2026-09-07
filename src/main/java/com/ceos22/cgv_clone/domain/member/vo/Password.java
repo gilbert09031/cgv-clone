@@ -1,11 +1,11 @@
 package com.ceos22.cgv_clone.domain.member.vo;
 
+import com.ceos22.cgv_clone.domain.member.service.PasswordEncryptor;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Objects;
 
@@ -21,13 +21,13 @@ public class Password {
         this.value = value;
     }
 
-    public static Password from(String rawPassword, PasswordEncoder encoder) {
+    public static Password from(String rawPassword, PasswordEncryptor encryptor) {
         validate(rawPassword);
-        return new Password(encoder.encode(rawPassword));
+        return new Password(encryptor.encrypt(rawPassword));
     }
 
-    public boolean matches(String rawPassword, PasswordEncoder encoder) {
-        return encoder.matches(rawPassword, this.value);
+    public boolean matches(String rawPassword, PasswordEncryptor encryptor) {
+        return encryptor.matches(rawPassword, this.value);
     }
 
     private static void validate(String rawPassword) {

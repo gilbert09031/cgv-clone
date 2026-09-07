@@ -1,6 +1,7 @@
 package com.ceos22.cgv_clone.domain.member.entity;
 
 import com.ceos22.cgv_clone.common.entity.BaseEntity;
+import com.ceos22.cgv_clone.domain.member.service.PasswordEncryptor;
 import com.ceos22.cgv_clone.domain.member.vo.BirthDate;
 import com.ceos22.cgv_clone.domain.member.vo.Email;
 import com.ceos22.cgv_clone.domain.member.vo.MemberName;
@@ -10,7 +11,6 @@ import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -50,24 +50,29 @@ public class Member extends BaseEntity implements UserDetails {
         this.role = role;
     }
 
-    public static Member of(
+    /**
+     * 유일한 생성 경로.
+     * 평문 비밀번호는 여기서만 들어오고, Password VO를 거치므로 암호화 없이는 저장될 수 없다.
+     * Role은 외부 입력으로 정해지지 않는다.
+     */
+    public static Member signUp(
             String email,
             String rawPassword,
             String name,
             LocalDate birthDate,
-            PasswordEncoder passwordEncoder
+            PasswordEncryptor passwordEncryptor
     ) {
         return new Member(
                 Email.from(email),
-                Password.from(rawPassword, passwordEncoder),
+                Password.from(rawPassword, passwordEncryptor),
                 MemberName.from(name),
                 BirthDate.from(birthDate),
                 Role.USER
         );
     }
 
-    public boolean matchesPassword(String rawPassword, PasswordEncoder passwordEncoder) {
-        return this.password.matches(rawPassword, passwordEncoder);
+    public boolean matchesPassword(String rawPassword, PasswordEncryptor passwordEncryptor) {
+        return this.password.matches(rawPassword, passwordEncryptor);
     }
 
     // UserDetails 구현
