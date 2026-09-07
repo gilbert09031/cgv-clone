@@ -15,8 +15,6 @@ import com.ceos22.cgv_clone.domain.member.service.PasswordEncryptor;
 import com.ceos22.cgv_clone.domain.member.vo.Email;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -87,16 +85,9 @@ public class AuthService {
         return createAndSaveTokens(member);
     }
 
-    public void logout(String accessToken) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        validateAuthentication(authentication);
-
-        String userId = jwtTokenProvider.getTokenUserId(accessToken);
-
+    public void logout(Long memberId, String accessToken) {
         addTokenBlackList(accessToken);
-        deleteRefreshToken(userId);
-
-        SecurityContextHolder.clearContext();
+        deleteRefreshToken(String.valueOf(memberId));
     }
 
     // ================================================================================================================
@@ -120,12 +111,6 @@ public class AuthService {
     private void validatePassword(Member member, String rawPassword) {
         if(!member.matchesPassword(rawPassword, passwordEncryptor)) {
             throw new CustomException(ErrorCode.INVALID_PASSWORD);
-        }
-    }
-
-    private void validateAuthentication(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new CustomException(ErrorCode.AUTHENTICATION_FAILED);
         }
     }
 

@@ -34,7 +34,9 @@ public class SecurityConfig {
     private final MemberRepository memberRepository;
 
     private static final String[] PERMIT_ALL_URL_PATTERNS = {
-            "/api/auth/**",
+            "/api/auth/signup",
+            "/api/auth/login",
+            "/api/auth/refresh",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/swagger-resources/**",
