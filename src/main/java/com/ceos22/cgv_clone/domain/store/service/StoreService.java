@@ -104,7 +104,7 @@ public class StoreService {
         storeStock.increaseStock(quantity);
     }
 
-    @ConcurrencyControl(key = " 'STORE:' + #storeId + 'PRODUCT' + #productId")
+    @ConcurrencyControl(key = " 'STORE:' + #storeId + ':PRODUCT' + #productId")
     @Transactional
     public void decreaseStock(Long storeId, Long productId, Integer quantity) {
 
