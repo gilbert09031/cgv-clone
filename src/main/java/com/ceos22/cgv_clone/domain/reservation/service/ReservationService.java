@@ -32,8 +32,8 @@ public class ReservationService {
     private final ScheduleRepository scheduleRepository;
     private final SeatRepository seatRepository;
 
-    public ReservationResponse createReservation(ReservationCreateRequest request) {
-        Member member = findMemberById(request.memberId());
+    public ReservationResponse createReservation(Long memberId, ReservationCreateRequest request) {
+        Member member = findMemberById(memberId);
         Schedule schedule = findScheduleById(request.scheduleId());
         List<Seat> seats = findSeatsByIds(request.seatIds());
 
