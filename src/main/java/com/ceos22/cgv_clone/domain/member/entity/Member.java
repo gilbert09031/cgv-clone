@@ -7,17 +7,21 @@ import com.ceos22.cgv_clone.domain.member.vo.Email;
 import com.ceos22.cgv_clone.domain.member.vo.MemberName;
 import com.ceos22.cgv_clone.domain.member.vo.Password;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
 import java.time.LocalDate;
 
 @Entity
+@Table(name = "member")
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)   // JPA 전용 통로. 애플리케이션 코드는 signUp()만 사용한다.
 public class Member extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "member_id")
     private Long memberId;
 
     @Embedded
@@ -33,7 +37,7 @@ public class Member extends BaseEntity {
     private BirthDate birthDate;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "role", length = 20, nullable = false)
     private Role role;
 
     private Member(Email email, Password password, MemberName name, BirthDate birthDate, Role role) {
@@ -44,11 +48,6 @@ public class Member extends BaseEntity {
         this.role = role;
     }
 
-    /**
-     * 유일한 생성 경로.
-     * 평문 비밀번호는 여기서만 들어오고, Password VO를 거치므로 암호화 없이는 저장될 수 없다.
-     * Role은 외부 입력으로 정해지지 않는다.
-     */
     public static Member signUp(
             String email,
             String rawPassword,
