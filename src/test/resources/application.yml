@@ -42,3 +42,6 @@ payment:
     base-url: https://payment.loopz.co.kr
     api-secret: test-payment-secret-for-testing-purposes-only
     store-id: "CEOS-22-3475832"
+  toss:
+    base-url: https://api.tosspayments.com
+    secret-key: test_sk_dummy

@@ -26,6 +26,7 @@ services:
       - PAYMENT_URL=${PAYMENT_URL}
       - PAYMENT_SECRET=${PAYMENT_SECRET}
       - STORE_ID=${STORE_ID}
+      - TOSS_SECRET_KEY=${TOSS_SECRET_KEY}
 
       # Spring Profile
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
