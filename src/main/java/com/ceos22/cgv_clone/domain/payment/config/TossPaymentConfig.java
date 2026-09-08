@@ -6,11 +6,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@ConfigurationProperties(prefix = "payment.mock")
+@ConfigurationProperties(prefix = "payment.toss")
 @Getter
 @Setter
-public class PaymentConfig {
+public class TossPaymentConfig {
 
     private String baseUrl;
-    private String apiSecret;
+    private String secretKey;
 }
