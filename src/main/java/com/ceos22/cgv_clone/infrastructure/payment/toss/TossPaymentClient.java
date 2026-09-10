@@ -1,7 +1,5 @@
-package com.ceos22.cgv_clone.domain.payment.client;
+package com.ceos22.cgv_clone.infrastructure.payment.toss;
 
-import com.ceos22.cgv_clone.domain.payment.dto.request.TossConfirmRequest;
-import com.ceos22.cgv_clone.domain.payment.dto.response.TossConfirmResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

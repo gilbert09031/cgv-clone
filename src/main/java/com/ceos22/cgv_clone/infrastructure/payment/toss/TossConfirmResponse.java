@@ -1,4 +1,4 @@
-package com.ceos22.cgv_clone.domain.payment.dto.response;
+package com.ceos22.cgv_clone.infrastructure.payment.toss;
 
 public record TossConfirmResponse(
         String paymentKey,

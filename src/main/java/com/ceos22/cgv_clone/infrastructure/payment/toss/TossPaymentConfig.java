@@ -1,4 +1,4 @@
-package com.ceos22.cgv_clone.domain.payment.config;
+package com.ceos22.cgv_clone.infrastructure.payment.toss;
 
 import lombok.Getter;
 import lombok.Setter;
