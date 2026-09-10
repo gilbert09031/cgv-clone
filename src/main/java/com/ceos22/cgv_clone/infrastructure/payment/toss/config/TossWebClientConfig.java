@@ -1,4 +1,4 @@
-package com.ceos22.cgv_clone.infrastructure.payment.toss;
+package com.ceos22.cgv_clone.infrastructure.payment.toss.config;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;

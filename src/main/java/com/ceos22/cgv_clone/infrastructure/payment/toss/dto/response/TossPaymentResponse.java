@@ -1,4 +1,4 @@
-package com.ceos22.cgv_clone.infrastructure.payment.toss;
+package com.ceos22.cgv_clone.infrastructure.payment.toss.dto.response;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;

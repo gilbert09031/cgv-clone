@@ -5,6 +5,10 @@ import com.ceos22.cgv_clone.domain.payment.gateway.GatewayApproval;
 import com.ceos22.cgv_clone.domain.payment.gateway.GatewayCancellation;
 import com.ceos22.cgv_clone.domain.payment.gateway.PaymentGateway;
 import com.ceos22.cgv_clone.domain.payment.gateway.PaymentGatewayException;
+import com.ceos22.cgv_clone.infrastructure.payment.toss.client.TossPaymentClient;
+import com.ceos22.cgv_clone.infrastructure.payment.toss.dto.request.TossConfirmRequest;
+import com.ceos22.cgv_clone.infrastructure.payment.toss.dto.response.TossPaymentResponse;
+import com.ceos22.cgv_clone.infrastructure.payment.toss.error.TossApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 

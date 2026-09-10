@@ -1,4 +1,4 @@
-package com.ceos22.cgv_clone.infrastructure.payment.toss;
+package com.ceos22.cgv_clone.infrastructure.payment.toss.error;
 
 import lombok.Getter;
 
