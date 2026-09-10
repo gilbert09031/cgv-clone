@@ -70,13 +70,18 @@ public class Payment {
         return new Payment(paymentNumber, target, amount, method, requestedAt);
     }
 
-    public void recordApproval(String transactionId, LocalDateTime approvedAt) {
+    public void startApproval(LocalDateTime requestedAt) {
         validateOpen();
+        append(PaymentLedgerEntry.approvalRequested(this, requestedAt));
+    }
+
+    public void recordApproval(String transactionId, LocalDateTime approvedAt) {
+        validateApproving();
         append(PaymentLedgerEntry.approved(this, transactionId, amount, approvedAt));
     }
 
     public void recordFailure(String failureCode, String failureReason, LocalDateTime failedAt) {
-        validateOpen();
+        validateApproving();
         append(PaymentLedgerEntry.failed(this, failureCode, failureReason, failedAt));
     }
 
@@ -90,6 +95,10 @@ public class Payment {
     // 승인 시도를 시작할 수 있는 상태
     public boolean isOpen() {
         return status == PaymentStatus.PENDING || status == PaymentStatus.FAILED;
+    }
+
+    public boolean isApproving() {
+        return status == PaymentStatus.APPROVING;
     }
 
     public long failureCount() {
@@ -121,6 +130,12 @@ public class Payment {
 
     private void validateOpen() {
         if (!isOpen()) {
+            throw new CustomException(ErrorCode.INVALID_PAYMENT_STATUS);
+        }
+    }
+
+    private void validateApproving() {
+        if (!isApproving()) {
             throw new CustomException(ErrorCode.INVALID_PAYMENT_STATUS);
         }
     }

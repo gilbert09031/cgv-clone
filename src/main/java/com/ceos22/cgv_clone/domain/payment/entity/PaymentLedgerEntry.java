@@ -57,6 +57,11 @@ public class PaymentLedgerEntry {
         this.occurredAt = occurredAt;
     }
 
+    static PaymentLedgerEntry approvalRequested(Payment payment, LocalDateTime requestedAt) {
+        return new PaymentLedgerEntry(payment, PaymentLedgerEntryType.APPROVAL_REQUESTED,
+                null, 0, null, null, requestedAt);
+    }
+
     static PaymentLedgerEntry approved(Payment payment, String transactionId,
                                        Integer amount, LocalDateTime approvedAt) {
         requireTransactionId(transactionId);
