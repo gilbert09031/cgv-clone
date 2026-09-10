@@ -47,6 +47,7 @@ public class OrderService {
         return OrderResponse.from(cart);
     }
 
+    // TODO : 트랜잭션 전파 속성 검토
     @Transactional
     public void confirmOrderAfterPayment(Long orderId) {
         Order order = findOrderById(orderId);
@@ -56,6 +57,7 @@ public class OrderService {
         order.confirmOrder();
     }
 
+    // TODO : 트랜잭션 전파 속성 검토
     @Transactional
     public void cancelOrderAfterPaymentCancel(Long orderId) {
         Order order = findOrderById(orderId);

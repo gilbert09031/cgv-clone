@@ -122,6 +122,25 @@ public class Order extends BaseEntity {
         this.status = OrderStatus.CANCELLED;
     }
 
+    public boolean isOwnedBy(Long memberId) {
+        return this.member.getMemberId().equals(memberId);
+    }
+
+    // 결제를 시작할 수 있는 상태
+    public boolean isPending() {
+        return this.status == OrderStatus.PENDING;
+    }
+
+    // 결제창 등에 표시할 주문 요약 이름. "상품명" 또는 "상품명 외 N건"
+    public String summaryName() {
+        if (orderDetails.isEmpty()) {
+            return "빈 주문";
+        }
+        String firstItemName = orderDetails.get(0).getProduct().getName();
+        int others = orderDetails.size() - 1;
+        return others == 0 ? firstItemName : String.format("%s 외 %d건", firstItemName, others);
+    }
+
     private OrderDetail findOrderDetailsByProduct(Product product) {
         return orderDetails.stream()
                 .filter(detail -> detail.getProduct().equals(product))
