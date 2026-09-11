@@ -175,27 +175,17 @@ public class OrderService {
                 log.warn("event=order.stock_decrease_rejected, orderId={}, productId={}, quantity={}, reason={}",
                         order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e.getErrorCode());
                 throw e;
-            } catch (Exception e) {
-                log.error("event=order.stock_decrease_failed, orderId={}, productId={}, quantity={}",
-                        order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e);
-                throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
             }
         }
     }
 
     private void increaseStockForOrder(Order order) {
         for (OrderDetail detail : order.getOrderDetails()) {
-            try {
-                storeService.increaseStock(
-                        order.getStore().getStoreId(),
-                        detail.getProduct().getProductId(),
-                        detail.getQuantity()
-                );
-            } catch (Exception e) {
-                // Swallowed on purpose: one failed restore must not block the others. Revisit with StoreStock @Version
-                log.error("event=order.stock_restore_failed, orderId={}, productId={}, quantity={}",
-                        order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e);
-            }
+            storeService.increaseStock(
+                    order.getStore().getStoreId(),
+                    detail.getProduct().getProductId(),
+                    detail.getQuantity()
+            );
         }
     }
 }

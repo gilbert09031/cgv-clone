@@ -27,6 +27,11 @@ public class StoreStock {
     @Builder.Default
     private Integer stock = 0;
 
+    // Stock changes join the caller's transaction, so a multi-product decrease commits or rolls back as one
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     public void increaseStock(int quantity) {
         if (quantity <= 0) {
             throw new IllegalArgumentException("재고 증가량은 0보다 커야 합니다.");
