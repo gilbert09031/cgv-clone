@@ -18,7 +18,8 @@ import java.util.Optional;
         name = "payment",
         indexes = {
                 @Index(name = "idx_payment_status_requested_at", columnList = "status, requested_at"),
-                @Index(name = "idx_payment_target", columnList = "target_type, target_id")
+                @Index(name = "idx_payment_target", columnList = "target_type, target_id"),
+                @Index(name = "idx_payment_member", columnList = "member_id")
         }
 )
 @Getter
@@ -32,6 +33,9 @@ public class Payment {
     // CGV에서 발급하는 결제 번호
     @Column(nullable = false, unique = true, updatable = false)
     private String paymentNumber;
+
+    @Column(nullable = false, updatable = false)
+    private Long memberId;
 
     @Embedded
     private PaymentTarget target;
@@ -54,10 +58,11 @@ public class Payment {
     @OrderBy("occurredAt ASC, id ASC")
     private List<PaymentLedgerEntry> ledger = new ArrayList<>();
 
-    private Payment(String paymentNumber, PaymentTarget target, Integer amount,
+    private Payment(String paymentNumber, Long memberId, PaymentTarget target, Integer amount,
                     PaymentMethod method, LocalDateTime requestedAt) {
-        validate(paymentNumber, target, amount, method, requestedAt);
+        validate(paymentNumber, memberId, target, amount, method, requestedAt);
         this.paymentNumber = paymentNumber;
+        this.memberId = memberId;
         this.target = target;
         this.amount = amount;
         this.method = method;
@@ -65,9 +70,13 @@ public class Payment {
         this.status = PaymentStatus.PENDING;
     }
 
-    public static Payment createPending(String paymentNumber, PaymentTarget target, Integer amount,
-                                        PaymentMethod method, LocalDateTime requestedAt) {
-        return new Payment(paymentNumber, target, amount, method, requestedAt);
+    public static Payment createPending(String paymentNumber, Long memberId, PaymentTarget target,
+                                        Integer amount, PaymentMethod method, LocalDateTime requestedAt) {
+        return new Payment(paymentNumber, memberId, target, amount, method, requestedAt);
+    }
+
+    public boolean isOwnedBy(Long memberId) {
+        return this.memberId.equals(memberId);
     }
 
     public void startApproval(LocalDateTime requestedAt) {
@@ -140,10 +149,13 @@ public class Payment {
         }
     }
 
-    private void validate(String paymentNumber, PaymentTarget target, Integer amount,
+    private void validate(String paymentNumber, Long memberId, PaymentTarget target, Integer amount,
                           PaymentMethod method, LocalDateTime requestedAt) {
         if (paymentNumber == null || paymentNumber.isBlank()) {
             throw new IllegalArgumentException("결제 번호는 필수입니다.");
+        }
+        if (memberId == null) {
+            throw new IllegalArgumentException("결제 회원은 필수입니다.");
         }
         if (target == null) {
             throw new IllegalArgumentException("결제 대상은 필수입니다.");

@@ -14,7 +14,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByPaymentNumber(String paymentNumber);
 
-    List<Payment> findAllByTargetOrderByRequestedAtDesc(PaymentTarget target);
+    boolean existsByTargetAndStatusIn(PaymentTarget target, Collection<PaymentStatus> statuses);
 
     List<Payment> findAllByStatusInAndRequestedAtBefore(Collection<PaymentStatus> statuses, LocalDateTime cutoff);
 }
