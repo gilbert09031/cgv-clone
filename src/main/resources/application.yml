@@ -45,10 +45,9 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: trace
 
 payment:
-  mock:
-    base-url: ${PAYMENT_URL}
-    api-secret: ${PAYMENT_SECRET}
-    store-id: ${STORE_ID}
+  toss:
+    base-url: https://api.tosspayments.com
+    secret-key: ${TOSS_SECRET_KEY}
 
 management:
   endpoints:
@@ -87,10 +86,9 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
 payment:
-  mock:
-    base-url: ${PAYMENT_URL}
-    api-secret: ${PAYMENT_SECRET}
-    store-id: ${STORE_ID}
+  toss:
+    base-url: https://api.tosspayments.com
+    secret-key: ${TOSS_SECRET_KEY}
 
 management:
   endpoints:

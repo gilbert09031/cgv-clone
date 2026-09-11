@@ -63,6 +63,8 @@ public enum ErrorCode {
     PAYMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "P002", "이미 결제가 존재합니다."),
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "P003", "결제 처리에 실패했습니다."),
     PAYMENT_CANCEL_FAILED(HttpStatus.BAD_REQUEST, "P004", "결제 취소에 실패했습니다."),
+    INVALID_PAYMENT_STATUS(HttpStatus.BAD_REQUEST, "P005", "유효하지 않은 결제 상태입니다."),
+    UNSUPPORTED_PAYMENT_TARGET(HttpStatus.BAD_REQUEST, "P006", "지원하지 않는 결제 대상입니다."),
     INVALID_ORDER_STATUS(HttpStatus.BAD_REQUEST, "O006", "유효하지 않은 주문 상태입니다.");
 
 

@@ -44,18 +44,42 @@ public class OrderService {
 
         cart.pendOrder();
 
+        log.info("event=order.pended, orderId={}, memberId={}, totalPrice={}", cart.getOrderId(), memberId, cart.getTotalPrice());
+
         return OrderResponse.from(cart);
     }
 
+    // Stock is reserved before PaymentGateway Confirmation, so an out-of-stock order fails without moving money.
+    // TODO : 트랜잭션 전파 속성 검토
+    @Transactional
+    public void holdStockForPayment(Long orderId) {
+        Order order = findOrderById(orderId);
+        decreaseStockForOrder(order);
+
+        log.info("event=order.stock_held, orderId={}", orderId);
+    }
+
+    // TODO : 트랜잭션 전파 속성 검토
     @Transactional
     public void confirmOrderAfterPayment(Long orderId) {
         Order order = findOrderById(orderId);
-
-        decreaseStockForOrder(order);
-
         order.confirmOrder();
+
+        log.info("event=order.confirmed, orderId={}", orderId);
     }
 
+    // The order stays PENDING for retrying with a new payment
+    // TODO : 트랜잭션 전파 속성 검토
+    @Transactional
+    public void releaseStockAfterPaymentFailure(Long orderId) {
+        Order order = findOrderById(orderId);
+
+        increaseStockForOrder(order);
+
+        log.info("event=order.stock_released, orderId={}", orderId);
+    }
+
+    // TODO : 트랜잭션 전파 속성 검토
     @Transactional
     public void cancelOrderAfterPaymentCancel(Long orderId) {
         Order order = findOrderById(orderId);
@@ -66,7 +90,7 @@ public class OrderService {
 
         order.cancelOrder();
 
-        log.info("[주문 취소]: 재고 복구 및 상태 변경 완료 | 주문번호 :{}", orderId);
+        log.info("event=order.cancelled, orderId={}", orderId);
     }
 
     public List<OrderResponse> getMyOrders(Long memberId) {
@@ -147,11 +171,12 @@ public class OrderService {
                         detail.getQuantity()
                 );
             } catch (CustomException e) {
-                log.error("[재고 차감 실패]: orderId={}, productId={}, quantity={}, error={}",
-                        order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e.getMessage());
+                // Expected rejection (e.g. insufficient stock): WARN with the product context the caller no longer has
+                log.warn("event=order.stock_decrease_rejected, orderId={}, productId={}, quantity={}, reason={}",
+                        order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e.getErrorCode());
                 throw e;
             } catch (Exception e) {
-                log.error("재고 차감 중 예상치 못한 오류 발생: orderId={}, productId={}, quantity={}",
+                log.error("event=order.stock_decrease_failed, orderId={}, productId={}, quantity={}",
                         order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e);
                 throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
             }
@@ -167,8 +192,9 @@ public class OrderService {
                         detail.getQuantity()
                 );
             } catch (Exception e) {
-                log.error("재고 복구 실패: orderId={}, productId={}, quantity={}, error={}",
-                        order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e.getMessage());
+                // Swallowed on purpose: one failed restore must not block the others. Revisit with StoreStock @Version
+                log.error("event=order.stock_restore_failed, orderId={}, productId={}, quantity={}",
+                        order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e);
             }
         }
     }

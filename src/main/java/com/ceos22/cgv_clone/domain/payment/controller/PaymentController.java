@@ -3,14 +3,21 @@ package com.ceos22.cgv_clone.domain.payment.controller;
 import com.ceos22.cgv_clone.common.error.SuccessCode;
 import com.ceos22.cgv_clone.common.response.ApiResponse;
 import com.ceos22.cgv_clone.domain.auth.security.CustomUserDetails;
-import com.ceos22.cgv_clone.domain.payment.dto.request.PaymentCreateRequest;
+import com.ceos22.cgv_clone.domain.payment.dto.request.PaymentPrepareRequest;
+import com.ceos22.cgv_clone.domain.payment.dto.response.PaymentPrepareResponse;
 import com.ceos22.cgv_clone.domain.payment.dto.response.PaymentResponse;
 import com.ceos22.cgv_clone.domain.payment.service.PaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 
 @RestController
 @RequestMapping("/api/payments")
@@ -19,39 +26,23 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
+    // Creating a payment is the preparation step: the response carries what the client needs to open the widget
     @PostMapping
-    public ResponseEntity<ApiResponse<PaymentResponse>> createPayment(
-            @Valid @RequestBody PaymentCreateRequest request,
+    public ResponseEntity<ApiResponse<PaymentPrepareResponse>> preparePayment(
+            @Valid @RequestBody PaymentPrepareRequest request,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        PaymentResponse payment = paymentService.executePayment(userDetails.getMemberId(), request);
-        return ApiResponse.success(SuccessCode.CREATE_SUCCESS, payment);
+        PaymentPrepareResponse response = paymentService.prepare(
+                userDetails.getMemberId(), request.toTarget(), request.method());
+        return ApiResponse.success(SuccessCode.CREATE_SUCCESS, response);
     }
 
-    @PostMapping("/{paymentId}/cancel")
-    public ResponseEntity<ApiResponse<PaymentResponse>> cancelPayment(
-            @PathVariable String paymentId,
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        PaymentResponse payment = paymentService.cancelPayment(userDetails.getMemberId(), paymentId);
-        return ApiResponse.success(SuccessCode.UPDATE_SUCCESS, payment);
-    }
-
-    @GetMapping("/{paymentId}")
+    @GetMapping("/{paymentNumber}")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(
-            @PathVariable String paymentId,
+            @PathVariable String paymentNumber,
             @AuthenticationPrincipal CustomUserDetails userDetails
     ) {
-        PaymentResponse payment = paymentService.getPayment(userDetails.getMemberId(), paymentId);
-        return ApiResponse.success(SuccessCode.GET_SUCCESS, payment);
-    }
-
-    @GetMapping("/orders/{orderId}")
-    public ResponseEntity<ApiResponse<PaymentResponse>> getPaymentByOrder(
-            @PathVariable Long orderId,
-            @AuthenticationPrincipal CustomUserDetails userDetails
-    ) {
-        PaymentResponse payment = paymentService.getPaymentByOrder(userDetails.getMemberId(), orderId);
-        return ApiResponse.success(SuccessCode.GET_SUCCESS, payment);
+        PaymentResponse response = paymentService.getPayment(userDetails.getMemberId(), paymentNumber);
+        return ApiResponse.success(SuccessCode.GET_SUCCESS, response);
     }
 }
