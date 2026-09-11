@@ -11,8 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * 매점 주문에 대한 PaymentTargetHandler 구현.
- * 결제 서비스의 트랜잭션 안에서 호출되므로 별도 트랜잭션을 열지 않고, 상태 변경은 OrderService에 위임한다.
+ * PaymentTargetHandler for store orders.
+ * Runs inside the payment service's transactions;
+ * state changes are delegated to OrderService
  */
 @Component
 @RequiredArgsConstructor
@@ -40,9 +41,20 @@ public class OrderPaymentTargetHandler implements PaymentTargetHandler {
         return new PayableTarget(order.getTotalPrice(), order.summaryName());
     }
 
+    // ORDER policy: nothing is reserved at preparation; stock is taken here, before the Payment Gateway Confirmation
+    @Override
+    public void onApprovalStarted(Long targetId) {
+        orderService.holdStockForPayment(targetId);
+    }
+
     @Override
     public void onApproved(Long targetId) {
         orderService.confirmOrderAfterPayment(targetId);
+    }
+
+    @Override
+    public void onApprovalFailed(Long targetId) {
+        orderService.releaseStockAfterPaymentFailure(targetId);
     }
 
     @Override
