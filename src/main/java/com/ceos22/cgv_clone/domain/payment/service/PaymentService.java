@@ -8,19 +8,16 @@ import com.ceos22.cgv_clone.domain.payment.entity.Payment;
 import com.ceos22.cgv_clone.domain.payment.entity.PaymentMethod;
 import com.ceos22.cgv_clone.domain.payment.entity.PaymentStatus;
 import com.ceos22.cgv_clone.domain.payment.entity.PaymentTarget;
-import com.ceos22.cgv_clone.domain.payment.entity.PaymentTargetType;
 import com.ceos22.cgv_clone.domain.payment.repository.PaymentRepository;
 import com.ceos22.cgv_clone.domain.payment.target.PayableTarget;
 import com.ceos22.cgv_clone.domain.payment.target.PaymentTargetHandler;
+import com.ceos22.cgv_clone.domain.payment.target.PaymentTargetHandlers;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -33,21 +30,19 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final PaymentNumberGenerator paymentNumberGenerator;
-    private final Map<PaymentTargetType, PaymentTargetHandler> targetHandlers;
+    private final PaymentTargetHandlers targetHandlers;
 
     public PaymentService(PaymentRepository paymentRepository,
                           PaymentNumberGenerator paymentNumberGenerator,
-                          List<PaymentTargetHandler> targetHandlers) {
+                          PaymentTargetHandlers targetHandlers) {
         this.paymentRepository = paymentRepository;
         this.paymentNumberGenerator = paymentNumberGenerator;
-        // Duplicate handlers for one target type fail at startup
-        this.targetHandlers = targetHandlers.stream()
-                .collect(Collectors.toUnmodifiableMap(PaymentTargetHandler::supports, Function.identity()));
+        this.targetHandlers = targetHandlers;
     }
 
     @Transactional
     public PaymentPrepareResponse prepare(Long memberId, PaymentTarget target, PaymentMethod method) {
-        PaymentTargetHandler handler = handlerFor(target.getType());
+        PaymentTargetHandler handler = targetHandlers.get(target.getType());
         PayableTarget payable = handler.verifyPayable(target.getId(), memberId);
         validateNoPaymentInProgress(target);
 
@@ -74,14 +69,6 @@ public class PaymentService {
     }
 
     //=================================================================================================================
-
-    private PaymentTargetHandler handlerFor(PaymentTargetType type) {
-        PaymentTargetHandler handler = targetHandlers.get(type);
-        if (handler == null) {
-            throw new CustomException(ErrorCode.UNSUPPORTED_PAYMENT_TARGET);
-        }
-        return handler;
-    }
 
     private void validateNoPaymentInProgress(PaymentTarget target) {
         if (paymentRepository.existsByTargetAndStatusIn(target, IN_PROGRESS_OR_DONE)) {
