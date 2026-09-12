@@ -16,6 +16,7 @@ import com.ceos22.cgv_clone.domain.store.service.StoreService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
@@ -49,38 +50,33 @@ public class OrderService {
         return OrderResponse.from(cart);
     }
 
+    // The four payment callbacks below run inside the payment service's transaction.
+    // MANDATORY rejects a call made without one, so order and stock changes never commit apart from the ledger.
+
     // Stock is reserved before PaymentGateway Confirmation, so an out-of-stock order fails without moving money.
-    // TODO : 트랜잭션 전파 속성 검토
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public void holdStockForPayment(Long orderId) {
         Order order = findOrderById(orderId);
         decreaseStockForOrder(order);
-
         log.info("event=order.stock_held, orderId={}", orderId);
     }
 
-    // TODO : 트랜잭션 전파 속성 검토
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public void confirmOrderAfterPayment(Long orderId) {
         Order order = findOrderById(orderId);
         order.confirmOrder();
-
         log.info("event=order.confirmed, orderId={}", orderId);
     }
 
     // The order stays PENDING for retrying with a new payment
-    // TODO : 트랜잭션 전파 속성 검토
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public void releaseStockAfterPaymentFailure(Long orderId) {
         Order order = findOrderById(orderId);
-
         increaseStockForOrder(order);
-
         log.info("event=order.stock_released, orderId={}", orderId);
     }
 
-    // TODO : 트랜잭션 전파 속성 검토
-    @Transactional
+    @Transactional(propagation = Propagation.MANDATORY)
     public void cancelOrderAfterPaymentCancel(Long orderId) {
         Order order = findOrderById(orderId);
 
