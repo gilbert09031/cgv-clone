@@ -3,6 +3,7 @@ package com.ceos22.cgv_clone.domain.payment.controller;
 import com.ceos22.cgv_clone.common.error.SuccessCode;
 import com.ceos22.cgv_clone.common.response.ApiResponse;
 import com.ceos22.cgv_clone.domain.auth.security.CustomUserDetails;
+import com.ceos22.cgv_clone.domain.payment.dto.request.PaymentConfirmRequest;
 import com.ceos22.cgv_clone.domain.payment.dto.request.PaymentPrepareRequest;
 import com.ceos22.cgv_clone.domain.payment.dto.response.PaymentPrepareResponse;
 import com.ceos22.cgv_clone.domain.payment.dto.response.PaymentResponse;
@@ -35,6 +36,16 @@ public class PaymentController {
         PaymentPrepareResponse response = paymentService.prepare(
                 userDetails.getMemberId(), request.toTarget(), request.method());
         return ApiResponse.success(SuccessCode.CREATE_SUCCESS, response);
+    }
+
+    @PostMapping("/confirm")
+    public ResponseEntity<ApiResponse<PaymentResponse>> confirmPayment(
+            @Valid @RequestBody PaymentConfirmRequest request,
+            @AuthenticationPrincipal CustomUserDetails userDetails
+    ) {
+        PaymentResponse response = paymentService.confirm(
+                userDetails.getMemberId(), request.gatewayOrderId(), request.gatewayToken(), request.amount());
+        return ApiResponse.success(SuccessCode.APPROVE_SUCCESS, response);
     }
 
     @GetMapping("/{paymentNumber}")
