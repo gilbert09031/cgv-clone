@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -159,29 +160,26 @@ public class OrderService {
 
 
     private void decreaseStockForOrder(Order order) {
-        for (OrderDetail detail : order.getOrderDetails()) {
-            try {
-                storeService.decreaseStock(
-                        order.getStore().getStoreId(),
-                        detail.getProduct().getProductId(),
-                        detail.getQuantity()
-                );
-            } catch (CustomException e) {
-                // Expected rejection (e.g. insufficient stock): WARN with the product context the caller no longer has
-                log.warn("event=order.stock_decrease_rejected, orderId={}, productId={}, quantity={}, reason={}",
-                        order.getOrderId(), detail.getProduct().getProductId(), detail.getQuantity(), e.getErrorCode());
-                throw e;
-            }
+        try {
+            storeService.decreaseStocks(order.getStore().getStoreId(), quantityByProductId(order));
+        } catch (CustomException e) {
+            // Expected rejection (e.g. insufficient stock): WARN with the order context the store domain does not have
+            log.warn("event=order.stock_decrease_rejected, orderId={}, reason={}, detail={}",
+                    order.getOrderId(), e.getErrorCode(), e.getMessage());
+            throw e;
         }
     }
 
     private void increaseStockForOrder(Order order) {
-        for (OrderDetail detail : order.getOrderDetails()) {
-            storeService.increaseStock(
-                    order.getStore().getStoreId(),
-                    detail.getProduct().getProductId(),
-                    detail.getQuantity()
-            );
-        }
+        storeService.increaseStocks(order.getStore().getStoreId(), quantityByProductId(order));
+    }
+
+    private Map<Long, Integer> quantityByProductId(Order order) {
+        return order.getOrderDetails().stream()
+                .collect(Collectors.toMap(
+                        detail -> detail.getProduct().getProductId(),
+                        OrderDetail::getQuantity,
+                        Integer::sum
+                ));
     }
 }

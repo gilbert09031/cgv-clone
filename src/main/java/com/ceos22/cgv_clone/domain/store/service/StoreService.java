@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -88,38 +89,69 @@ public class StoreService {
 
     //=================================================================================================================
 
-    // Joins the caller's transaction.
-    // Concurrent updates fail with OptimisticLockingFailureException at flush or commit
+    // Both methods join the caller's transaction, so every product of one order commits or rolls back together.
+    // Concurrent updates fail with OptimisticLockingFailureException at commit
+
     @Transactional
-    public void increaseStock(Long storeId, Long productId, Integer quantity) {
+    public void increaseStocks(Long storeId, Map<Long, Integer> quantityByProductId) {
 
-        Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new CustomException(ErrorCode.STORE_NOT_FOUND));
-
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
-
-        StoreStock storeStock = storeStockRepository.findByStoreAndProduct(store, product)
-                .orElseThrow(() -> new CustomException(ErrorCode.STOCK_NOT_FOUND));
-
-        storeStock.increaseStock(quantity);
+        for (StoreStock storeStock : findStocks(storeId, quantityByProductId)) {
+            storeStock.increaseStock(quantityByProductId.get(productIdOf(storeStock)));
+        }
     }
 
     @Transactional
-    public void decreaseStock(Long storeId, Long productId, Integer quantity) {
+    public void decreaseStocks(Long storeId, Map<Long, Integer> quantityByProductId) {
 
-        Store store = storeRepository.findById(storeId)
-                .orElseThrow(() -> new CustomException(ErrorCode.STORE_NOT_FOUND));
+        int decreased = 0;
 
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new CustomException(ErrorCode.PRODUCT_NOT_FOUND));
+        for (StoreStock storeStock : findStocks(storeId, quantityByProductId)) {
+            Long productId = productIdOf(storeStock);
+            Integer quantity = quantityByProductId.get(productId);
 
-        StoreStock storeStock = storeStockRepository.findByStoreAndProduct(store, product)
-                .orElseThrow(() -> new CustomException(ErrorCode.STOCK_NOT_FOUND));
+            try {
+                storeStock.decreaseStock(quantity);
+            } catch (CustomException e) {
+                // Callers know the order, not which product ran out
+                throw new CustomException(e.getErrorCode(),
+                        "storeId=%d, productId=%d, requested=%d, available=%d"
+                                .formatted(storeId, productId, quantity, storeStock.getStock()));
+            }
+            decreased += quantity;
+        }
 
-        storeStock.decreaseStock(quantity);
+        paymentMetrics.recordStockDecrease(decreased);
+    }
 
-        paymentMetrics.recordStockDecrease(quantity);
+    private List<StoreStock> findStocks(Long storeId, Map<Long, Integer> quantityByProductId) {
+
+        if (quantityByProductId.isEmpty()) {
+            return List.of();
+        }
+
+        List<StoreStock> storeStocks =
+                storeStockRepository.findAllByStoreIdAndProductIdIn(storeId, quantityByProductId.keySet());
+
+        if (storeStocks.size() != quantityByProductId.size()) {
+            throw new CustomException(ErrorCode.STOCK_NOT_FOUND,
+                    "storeId=%d, missingProductIds=%s".formatted(storeId, missingProductIds(storeStocks, quantityByProductId)));
+        }
+        return storeStocks;
+    }
+
+    private List<Long> missingProductIds(List<StoreStock> storeStocks, Map<Long, Integer> quantityByProductId) {
+
+        List<Long> found = storeStocks.stream()
+                .map(StoreService::productIdOf)
+                .toList();
+
+        return quantityByProductId.keySet().stream()
+                .filter(productId -> !found.contains(productId))
+                .toList();
+    }
+
+    private static Long productIdOf(StoreStock storeStock) {
+        return storeStock.getProduct().getProductId();
     }
 
 }
