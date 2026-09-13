@@ -14,6 +14,7 @@ public enum SuccessCode {
     DELETE_SUCCESS(HttpStatus.OK, "S003", "성공적으로 삭제되었습니다."),
     LOGIN_SUCCESS(HttpStatus.OK, "A002", "성공적으로 로그인되었습니다."),
     LOGOUT_SUCCESS(HttpStatus.OK, "A004", "로그아웃이 완료되었습니다."),
+    APPROVE_SUCCESS(HttpStatus.OK, "S005", "결제가 승인되었습니다."),
 
     // 201 Created
     CREATE_SUCCESS(HttpStatus.CREATED, "S004", "성공적으로 생성되었습니다."),

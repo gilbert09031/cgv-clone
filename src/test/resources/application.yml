@@ -41,3 +41,4 @@ payment:
   toss:
     base-url: https://api.tosspayments.com
     secret-key: test_sk_dummy
+  max-failure-count: 3

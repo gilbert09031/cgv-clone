@@ -5,12 +5,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 public interface StoreStockRepository extends JpaRepository<StoreStock, StoreStockId> {
 
-    Optional<StoreStock> findByStoreAndProduct(Store store, Product product);
+    // One query for a whole order, ordered by product so concurrent orders take x-locks in same order
+    @Query("SELECT ss FROM StoreStock ss " +
+            "WHERE ss.store.storeId = :storeId " +
+            "AND ss.product.productId IN :productIds " +
+            "ORDER BY ss.product.productId")
+    List<StoreStock> findAllByStoreIdAndProductIdIn(@Param("storeId") Long storeId,
+                                                    @Param("productIds") Collection<Long> productIds);
 
     @Query("SELECT ss FROM StoreStock ss WHERE ss.store = :store AND ss.product.category = :category")
     List<StoreStock> findByStoreAndProductCategory(@Param("store") Store store, @Param("category") ProductCategory category);

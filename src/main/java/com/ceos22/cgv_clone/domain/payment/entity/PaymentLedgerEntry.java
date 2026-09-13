@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Immutable
-@Table(name = "payment_ledger")
+@Table(name = "payment_ledger", indexes = @Index(name = "idx_ledger_gateway_order_id", columnList = "gateway_order_id"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PaymentLedgerEntry {
@@ -27,14 +27,13 @@ public class PaymentLedgerEntry {
     @Column(nullable = false)
     private PaymentLedgerEntryType type;
 
+    @Column(name = "gateway_order_id", nullable = false, updatable = false)
+    private String gatewayOrderId;
+
     // 외부 시스템이 발급한 식별자
     // e.g. Toss Payments : Payment.paymentKey
     @Column(unique = true)
     private String transactionId;
-
-    // 승인은 양수, 취소는 음수, 실패는 0
-    @Column(nullable = false)
-    private Integer amount;
 
     private String failureCode;
 
@@ -43,59 +42,59 @@ public class PaymentLedgerEntry {
     @Column(nullable = false, updatable = false)
     private LocalDateTime occurredAt;
 
-    private PaymentLedgerEntry(Payment payment, PaymentLedgerEntryType type, String transactionId,
-                               Integer amount, String failureCode, String failureReason,
+    private PaymentLedgerEntry(Payment payment, PaymentLedgerEntryType type, String gatewayOrderId,
+                               String transactionId, String failureCode, String failureReason,
                                LocalDateTime occurredAt) {
         if (payment == null) throw new IllegalArgumentException("원장 행은 결제에 속해야 합니다.");
+        if (gatewayOrderId == null || gatewayOrderId.isBlank()) {
+            throw new IllegalArgumentException("원장 행에는 시도의 주문 번호가 필요합니다.");
+        }
         if (occurredAt == null) throw new IllegalArgumentException("사건 발생 시각은 필수입니다.");
         this.payment = payment;
         this.type = type;
+        this.gatewayOrderId = gatewayOrderId;
         this.transactionId = transactionId;
-        this.amount = amount;
         this.failureCode = failureCode;
         this.failureReason = failureReason;
         this.occurredAt = occurredAt;
     }
 
-    static PaymentLedgerEntry approvalRequested(Payment payment, LocalDateTime requestedAt) {
+    static PaymentLedgerEntry attempted(Payment payment, String gatewayOrderId, LocalDateTime attemptedAt) {
+        return new PaymentLedgerEntry(payment, PaymentLedgerEntryType.ATTEMPTED,
+                gatewayOrderId, null, null, null, attemptedAt);
+    }
+
+    static PaymentLedgerEntry approvalRequested(Payment payment, String gatewayOrderId, LocalDateTime requestedAt) {
         return new PaymentLedgerEntry(payment, PaymentLedgerEntryType.APPROVAL_REQUESTED,
-                null, 0, null, null, requestedAt);
+                gatewayOrderId, null, null, null, requestedAt);
     }
 
-    static PaymentLedgerEntry approved(Payment payment, String transactionId,
-                                       Integer amount, LocalDateTime approvedAt) {
+    static PaymentLedgerEntry approved(Payment payment, String gatewayOrderId, String transactionId,
+                                       LocalDateTime approvedAt) {
         requireTransactionId(transactionId);
-        requirePositive(amount);
         return new PaymentLedgerEntry(payment, PaymentLedgerEntryType.APPROVED,
-                transactionId, amount, null, null, approvedAt);
+                gatewayOrderId, transactionId, null, null, approvedAt);
     }
 
-    static PaymentLedgerEntry failed(Payment payment, String failureCode,
+    static PaymentLedgerEntry failed(Payment payment, String gatewayOrderId, String failureCode,
                                      String failureReason, LocalDateTime failedAt) {
         if (failureCode == null || failureCode.isBlank()) {
             throw new IllegalArgumentException("실패 원장에는 실패 코드가 필요합니다.");
         }
         return new PaymentLedgerEntry(payment, PaymentLedgerEntryType.FAILED,
-                null, 0, failureCode, failureReason, failedAt);
+                gatewayOrderId, null, failureCode, failureReason, failedAt);
     }
 
-    static PaymentLedgerEntry cancelled(Payment payment, String transactionId,
-                                        Integer amount, LocalDateTime cancelledAt) {
+    static PaymentLedgerEntry cancelled(Payment payment, String gatewayOrderId, String transactionId,
+                                        LocalDateTime cancelledAt) {
         requireTransactionId(transactionId);
-        requirePositive(amount);
         return new PaymentLedgerEntry(payment, PaymentLedgerEntryType.CANCELLED,
-                transactionId, -amount, null, null, cancelledAt);
+                gatewayOrderId, transactionId, null, null, cancelledAt);
     }
 
     private static void requireTransactionId(String transactionId) {
         if (transactionId == null || transactionId.isBlank()) {
             throw new IllegalArgumentException("외부 거래 식별자가 필요합니다.");
-        }
-    }
-
-    private static void requirePositive(Integer amount) {
-        if (amount == null || amount <= 0) {
-            throw new IllegalArgumentException("금액은 양수여야 합니다.");
         }
     }
 }

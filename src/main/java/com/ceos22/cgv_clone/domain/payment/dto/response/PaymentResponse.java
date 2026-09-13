@@ -37,8 +37,8 @@ public record PaymentResponse(
 
     public record LedgerEntryResponse(
             PaymentLedgerEntryType type,
+            String gatewayOrderId,
             String transactionId,
-            Integer amount,
             String failureCode,
             String failureReason,
             LocalDateTime occurredAt
@@ -46,8 +46,8 @@ public record PaymentResponse(
         static LedgerEntryResponse from(PaymentLedgerEntry entry) {
             return new LedgerEntryResponse(
                     entry.getType(),
+                    entry.getGatewayOrderId(),
                     entry.getTransactionId(),
-                    entry.getAmount(),
                     entry.getFailureCode(),
                     entry.getFailureReason(),
                     entry.getOccurredAt()

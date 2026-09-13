@@ -26,15 +26,13 @@ public class TossPaymentGateway implements PaymentGateway {
         return PaymentMethod.TOSS_PAYMENTS;
     }
 
-    /**
-     * paymentNumber를 토스 orderId로, gatewayToken을 paymentKey로 보낸다.
-     * TODO : Toss Payments는 orderId의 재사용을 금지하고 있어, Payment 객체를 매 요청마다 새로 생성해야하기에, PaymentLedger 도입을 재검토해야함.
-     */
+    // 시도마다 발급된 gatewayOrderId를 토스 orderId로, gatewayToken을 paymentKey로 보낸다.
+    // 토스는 orderId 재사용을 DUPLICATED_ORDER_ID로 거절한다 (2026-09-11 확인, 개발자 커뮤니티)
     @Override
-    public GatewayApproval approve(String paymentNumber, String gatewayToken, int amount) {
+    public GatewayApproval approve(String gatewayOrderId, String gatewayToken, int amount) {
         try {
             TossPaymentResponse response = client.confirmPayment(
-                    new TossConfirmRequest(gatewayToken, paymentNumber, amount));
+                    new TossConfirmRequest(gatewayToken, gatewayOrderId, amount));
             return new GatewayApproval(response.paymentKey(), response.approvedLocalDateTime());
         } catch (TossApiException e) {
             throw new PaymentGatewayException(e.getCode(), e.getMessage());

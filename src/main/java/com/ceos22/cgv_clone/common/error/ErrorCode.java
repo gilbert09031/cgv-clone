@@ -65,6 +65,10 @@ public enum ErrorCode {
     PAYMENT_CANCEL_FAILED(HttpStatus.BAD_REQUEST, "P004", "결제 취소에 실패했습니다."),
     INVALID_PAYMENT_STATUS(HttpStatus.BAD_REQUEST, "P005", "유효하지 않은 결제 상태입니다."),
     UNSUPPORTED_PAYMENT_TARGET(HttpStatus.BAD_REQUEST, "P006", "지원하지 않는 결제 대상입니다."),
+    PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "P007", "결제 금액이 일치하지 않습니다."),
+    PAYMENT_RETRY_EXCEEDED(HttpStatus.BAD_REQUEST, "P008", "결제 재시도 횟수를 초과했습니다."),
+    // Gateway 5xx or timeout: the approval may still have succeeded, so clients must treat this as pending
+    PAYMENT_RESULT_UNKNOWN(HttpStatus.BAD_GATEWAY, "P009", "결제 결과를 확인하고 있습니다."),
     INVALID_ORDER_STATUS(HttpStatus.BAD_REQUEST, "O006", "유효하지 않은 주문 상태입니다.");
 
 
