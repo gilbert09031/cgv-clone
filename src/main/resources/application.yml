@@ -48,6 +48,8 @@ payment:
   toss:
     base-url: https://api.tosspayments.com
     secret-key: ${TOSS_SECRET_KEY}
+  # 한 결제가 기록된 실패 횟수가 이 값에 이르면 더 이상 승인 시도를 받지 않는다
+  max-failure-count: 3
 
 management:
   endpoints:
@@ -89,6 +91,7 @@ payment:
   toss:
     base-url: https://api.tosspayments.com
     secret-key: ${TOSS_SECRET_KEY}
+  max-failure-count: 3
 
 management:
   endpoints:

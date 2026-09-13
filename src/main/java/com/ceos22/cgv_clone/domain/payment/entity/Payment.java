@@ -110,6 +110,15 @@ public class Payment {
         return status == PaymentStatus.APPROVING;
     }
 
+    // 대상이 묶여 있는 상태. 승인 중이거나 이미 결제됨
+    public boolean isInProgressOrDone() {
+        return status == PaymentStatus.APPROVING || status == PaymentStatus.APPROVED;
+    }
+
+    public boolean hasNumber(String paymentNumber) {
+        return this.paymentNumber.equals(paymentNumber);
+    }
+
     public long failureCount() {
         return ledger.stream()
                 .filter(entry -> entry.getType() == PaymentLedgerEntryType.FAILED)
