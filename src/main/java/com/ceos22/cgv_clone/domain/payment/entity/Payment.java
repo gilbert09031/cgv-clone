@@ -30,7 +30,7 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // CGV에서 발급하는 결제 번호
+    // CGV에서 발급하는 결제 번호. 게이트웨이에는 이 번호가 아니라 시도마다 발급하는 orderId가 나간다
     @Column(nullable = false, unique = true, updatable = false)
     private String paymentNumber;
 
@@ -79,26 +79,41 @@ public class Payment {
         return this.memberId.equals(memberId);
     }
 
-    public void startApproval(LocalDateTime requestedAt) {
+    /**
+     * 결제창을 띄울 때마다 호출한다. 토스가 orderId 재사용을 막으므로(2026-09-11 확인) 시도마다 새 번호를 발급한다
+     * @return 게이트웨이에 주문 식별자로 보낼 번호
+     */
+    public String startAttempt(LocalDateTime attemptedAt) {
         validateOpen();
-        append(PaymentLedgerEntry.approvalRequested(this, requestedAt));
+        String gatewayOrderId = nextGatewayOrderId();
+        append(PaymentLedgerEntry.attempted(this, gatewayOrderId, attemptedAt));
+        return gatewayOrderId;
+    }
+
+    public void startApproval(String gatewayOrderId, LocalDateTime requestedAt) {
+        validateOpen();
+        if (!hasAttempt(gatewayOrderId)) {
+            throw new CustomException(ErrorCode.PAYMENT_NOT_FOUND);
+        }
+        append(PaymentLedgerEntry.approvalRequested(this, gatewayOrderId, requestedAt));
     }
 
     public void recordApproval(String transactionId, LocalDateTime approvedAt) {
         validateApproving();
-        append(PaymentLedgerEntry.approved(this, transactionId, amount, approvedAt));
+        append(PaymentLedgerEntry.approved(this, approvingOrderId(), transactionId, approvedAt));
     }
 
     public void recordFailure(String failureCode, String failureReason, LocalDateTime failedAt) {
         validateApproving();
-        append(PaymentLedgerEntry.failed(this, failureCode, failureReason, failedAt));
+        append(PaymentLedgerEntry.failed(this, approvingOrderId(), failureCode, failureReason, failedAt));
     }
 
     public void recordCancellation(String transactionId, LocalDateTime cancelledAt) {
         if (status != PaymentStatus.APPROVED) {
             throw new CustomException(ErrorCode.INVALID_PAYMENT_STATUS);
         }
-        append(PaymentLedgerEntry.cancelled(this, transactionId, amount, cancelledAt));
+        append(PaymentLedgerEntry.cancelled(this, latestOrderIdOf(PaymentLedgerEntryType.APPROVED),
+                transactionId, cancelledAt));
     }
 
     // 승인 시도를 시작할 수 있는 상태
@@ -115,8 +130,10 @@ public class Payment {
         return status == PaymentStatus.APPROVING || status == PaymentStatus.APPROVED;
     }
 
-    public boolean hasNumber(String paymentNumber) {
-        return this.paymentNumber.equals(paymentNumber);
+    public boolean hasAttempt(String gatewayOrderId) {
+        return ledger.stream()
+                .filter(entry -> entry.getType() == PaymentLedgerEntryType.ATTEMPTED)
+                .anyMatch(entry -> entry.getGatewayOrderId().equals(gatewayOrderId));
     }
 
     public long failureCount() {
@@ -136,6 +153,10 @@ public class Payment {
         return this.amount.equals(amount);
     }
 
+    public boolean hasMethod(PaymentMethod method) {
+        return this.method == method;
+    }
+
     public List<PaymentLedgerEntry> getLedger() {
         return Collections.unmodifiableList(ledger);
     }
@@ -144,6 +165,25 @@ public class Payment {
     private void append(PaymentLedgerEntry entry) {
         ledger.add(entry);
         this.status = entry.getType().toPaymentStatus();
+    }
+
+    private String nextGatewayOrderId() {
+        long attempts = ledger.stream()
+                .filter(entry -> entry.getType() == PaymentLedgerEntryType.ATTEMPTED)
+                .count();
+        return paymentNumber + "-" + (attempts + 1);
+    }
+
+    private String approvingOrderId() {
+        return latestOrderIdOf(PaymentLedgerEntryType.APPROVAL_REQUESTED);
+    }
+
+    private String latestOrderIdOf(PaymentLedgerEntryType type) {
+        return ledger.stream()
+                .filter(entry -> entry.getType() == type)
+                .reduce((first, second) -> second)
+                .map(PaymentLedgerEntry::getGatewayOrderId)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_PAYMENT_STATUS));
     }
 
     private void validateOpen() {

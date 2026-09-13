@@ -33,14 +33,14 @@ public class PaymentApprovalRecorder {
     }
 
     /**
-     * Claim the payment for one approval attempt and reserve what the target needs to be fulfilled
+     * Claim the attempt for one approval and reserve what the target needs to be fulfilled
+     * @param gatewayOrderId order id the client received at preparation and used in the payment widget
      * @return payment method, which selects the gateway to call next
      * @throws CustomException when the payment or its target cannot start an approval; nothing is reserved then
      */
     @Transactional
-    public PaymentMethod preempt(Long memberId, String paymentNumber, Integer amount) {
-        List<Payment> paymentsOfTarget = lockPaymentsOfSameTarget(paymentNumber);
-        Payment payment = selectByNumber(paymentsOfTarget, paymentNumber);
+    public PaymentMethod preempt(Long memberId, String gatewayOrderId, Integer amount) {
+        Payment payment = lockPaymentOfAttempt(gatewayOrderId);
 
         validateOwner(payment, memberId);
         if (!payment.isOpen()) {
@@ -52,23 +52,20 @@ public class PaymentApprovalRecorder {
         if (payment.failureCount() >= maxFailureCount) {
             throw new CustomException(ErrorCode.PAYMENT_RETRY_EXCEEDED);
         }
-        if (paymentsOfTarget.stream().anyMatch(Payment::isInProgressOrDone)) {
-            throw new CustomException(ErrorCode.PAYMENT_ALREADY_EXISTS);
-        }
 
         PaymentTarget target = payment.getTarget();
         PaymentTargetHandler handler = targetHandlers.get(target.getType());
         handler.verifyPayable(target.getId(), memberId);
         handler.onApprovalStarted(target.getId());
 
-        payment.startApproval(LocalDateTime.now());
+        payment.startApproval(gatewayOrderId, LocalDateTime.now());
         return payment.getMethod();
     }
 
     /** Record the approval and confirm the target. The money has moved, so this must not fail for business reasons */
     @Transactional
-    public PaymentResponse recordSuccess(String paymentNumber, GatewayApproval approval) {
-        Payment payment = selectByNumber(lockPaymentsOfSameTarget(paymentNumber), paymentNumber);
+    public PaymentResponse recordSuccess(String gatewayOrderId, GatewayApproval approval) {
+        Payment payment = lockPaymentOfAttempt(gatewayOrderId);
 
         payment.recordApproval(approval.transactionId(), approval.approvedAt());
         handlerFor(payment).onApproved(payment.getTarget().getId());
@@ -78,23 +75,21 @@ public class PaymentApprovalRecorder {
 
     /** Record the gateway's rejection and release what preempt reserved */
     @Transactional
-    public void recordFailure(String paymentNumber, String failureCode, String failureReason) {
-        Payment payment = selectByNumber(lockPaymentsOfSameTarget(paymentNumber), paymentNumber);
+    public void recordFailure(String gatewayOrderId, String failureCode, String failureReason) {
+        Payment payment = lockPaymentOfAttempt(gatewayOrderId);
 
         payment.recordFailure(failureCode, failureReason, LocalDateTime.now());
         handlerFor(payment).onApprovalFailed(payment.getTarget().getId());
     }
 
-    private List<Payment> lockPaymentsOfSameTarget(String paymentNumber) {
-        PaymentTarget target = paymentRepository.findTargetByPaymentNumber(paymentNumber)
+    private Payment lockPaymentOfAttempt(String gatewayOrderId) {
+        PaymentTarget target = paymentRepository.findTargetByGatewayOrderId(gatewayOrderId)
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
 
-        return paymentRepository.lockAllByTarget(target);
-    }
+        List<Payment> paymentsOfTarget = paymentRepository.lockAllByTarget(target);
 
-    private Payment selectByNumber(List<Payment> paymentsOfTarget, String paymentNumber) {
         return paymentsOfTarget.stream()
-                .filter(payment -> payment.hasNumber(paymentNumber))
+                .filter(payment -> payment.hasAttempt(gatewayOrderId))
                 .findFirst()
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_NOT_FOUND));
     }

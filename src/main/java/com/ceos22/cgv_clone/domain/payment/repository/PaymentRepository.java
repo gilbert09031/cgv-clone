@@ -18,12 +18,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
 
     Optional<Payment> findByPaymentNumber(String paymentNumber);
 
-    boolean existsByTargetAndStatusIn(PaymentTarget target, Collection<PaymentStatus> statuses);
-
     List<Payment> findAllByStatusInAndRequestedAtBefore(Collection<PaymentStatus> statuses, LocalDateTime cutoff);
 
-    @Query("SELECT p.target FROM Payment p WHERE p.paymentNumber = :paymentNumber")
-    Optional<PaymentTarget> findTargetByPaymentNumber(@Param("paymentNumber") String paymentNumber);
+    @Query("SELECT DISTINCT e.payment.target FROM PaymentLedgerEntry e WHERE e.gatewayOrderId = :gatewayOrderId")
+    Optional<PaymentTarget> findTargetByGatewayOrderId(@Param("gatewayOrderId") String gatewayOrderId);
 
     /**
      * Lock and return every payment of one target, held until the transaction ends.
