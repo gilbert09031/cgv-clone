@@ -23,6 +23,10 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT DISTINCT e.payment.target FROM PaymentLedgerEntry e WHERE e.gatewayOrderId = :gatewayOrderId")
     Optional<PaymentTarget> findTargetByGatewayOrderId(@Param("gatewayOrderId") String gatewayOrderId);
 
+    // Plain read with no lock, so callers that lock target rows first keep the payment -> target lock order intact
+    @Query("SELECT COUNT(p) > 0 FROM Payment p WHERE p.target = :target AND p.status = :status")
+    boolean existsByTargetAndStatus(@Param("target") PaymentTarget target, @Param("status") PaymentStatus status);
+
     /**
      * Lock and return every payment of one target, held until the transaction ends.
      */
