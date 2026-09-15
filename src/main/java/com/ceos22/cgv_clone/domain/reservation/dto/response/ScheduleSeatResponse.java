@@ -1,13 +1,11 @@
 package com.ceos22.cgv_clone.domain.reservation.dto.response;
 
 import com.ceos22.cgv_clone.domain.reservation.entity.Schedule;
+import com.ceos22.cgv_clone.domain.reservation.entity.ScheduleSeat;
 import com.ceos22.cgv_clone.domain.theater.entity.ScreenType;
-import com.ceos22.cgv_clone.domain.theater.entity.Seat;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public record ScheduleSeatResponse(
         Long scheduleId,
@@ -16,31 +14,30 @@ public record ScheduleSeatResponse(
         ScreenType screenType,
         LocalDateTime startTime,
         LocalDateTime endTime,
+        Integer rowCount,
+        Integer colCount,
         List<SeatStatusInfo> seats
 ) {
     public record SeatStatusInfo(
-            Long seatId,
-            String rowName,
-            String columnNumber,
-            boolean isReserved
+            Long scheduleSeatId,
+            Integer seatRow,
+            Integer seatCol,
+            boolean isAvailable
     ) {
-        public static SeatStatusInfo from(Seat seat, boolean isReserved) {
+        public static SeatStatusInfo from(ScheduleSeat seat, LocalDateTime now) {
             return new SeatStatusInfo(
-                    seat.getSeatId(),
-                    seat.getRowName(),
-                    seat.getColumnNumber(),
-                    isReserved
+                    seat.getScheduleSeatId(),
+                    seat.getSeatRow(),
+                    seat.getSeatCol(),
+                    seat.isAvailableAt(now)
             );
         }
     }
 
-    public static ScheduleSeatResponse from(Schedule schedule, Set<Long> reservedSeatIds) {
-        List<SeatStatusInfo> seatsInfos = schedule.getScreen().getSeats().stream()
-                .map(seat -> SeatStatusInfo.from(
-                        seat,
-                        reservedSeatIds.contains(seat.getSeatId())
-                ))
-                .collect(Collectors.toList());
+    public static ScheduleSeatResponse from(Schedule schedule, List<ScheduleSeat> seats, LocalDateTime now) {
+        List<SeatStatusInfo> seatInfos = seats.stream()
+                .map(seat -> SeatStatusInfo.from(seat, now))
+                .toList();
 
         return new ScheduleSeatResponse(
                 schedule.getScheduleId(),
@@ -49,8 +46,9 @@ public record ScheduleSeatResponse(
                 schedule.getScreen().getType(),
                 schedule.getStartTime(),
                 schedule.getEndTime(),
-                seatsInfos
+                schedule.getScreen().getRowCount(),
+                schedule.getScreen().getColCount(),
+                seatInfos
         );
     }
-
 }

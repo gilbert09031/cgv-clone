@@ -3,13 +3,9 @@ package com.ceos22.cgv_clone.domain.theater.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @Entity
+@Table(uniqueConstraints = @UniqueConstraint(name = "uk_screen_theater_name", columnNames = {"theater_id", "name"}))
 @Getter
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Screen {
 
@@ -24,8 +20,22 @@ public class Screen {
     @Column(nullable = false)
     private String name; // 1관, IMAX관
 
-    private ScreenType type; // IMAX, DOLBY ATMOS ...
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private ScreenType type;
 
-    @OneToMany(mappedBy = "screen")
-    private List<Seat> seats = new ArrayList<>();
+    @Column(nullable = false)
+    private Integer rowCount;
+
+    @Column(nullable = false)
+    private Integer colCount;
+
+    @Builder
+    public Screen(Theater theater, String name, ScreenType type, Integer rowCount, Integer colCount) {
+        this.theater = theater;
+        this.name = name;
+        this.type = type;
+        this.rowCount = rowCount;
+        this.colCount = colCount;
+    }
 }

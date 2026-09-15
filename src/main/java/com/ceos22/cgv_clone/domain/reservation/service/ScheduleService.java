@@ -7,11 +7,10 @@ import com.ceos22.cgv_clone.domain.movie.repository.MovieRepository;
 import com.ceos22.cgv_clone.domain.reservation.dto.request.ScheduleCreateRequest;
 import com.ceos22.cgv_clone.domain.reservation.dto.response.ScheduleResponse;
 import com.ceos22.cgv_clone.domain.reservation.dto.response.ScheduleSeatResponse;
-import com.ceos22.cgv_clone.domain.reservation.entity.ReservationSeat;
 import com.ceos22.cgv_clone.domain.reservation.entity.Schedule;
-import com.ceos22.cgv_clone.domain.reservation.repository.ReservationRepository;
-import com.ceos22.cgv_clone.domain.reservation.repository.ReservationSeatRepository;
+import com.ceos22.cgv_clone.domain.reservation.entity.ScheduleSeat;
 import com.ceos22.cgv_clone.domain.reservation.repository.ScheduleRepository;
+import com.ceos22.cgv_clone.domain.reservation.repository.ScheduleSeatRepository;
 import com.ceos22.cgv_clone.domain.theater.entity.Screen;
 import com.ceos22.cgv_clone.domain.theater.repository.ScreenRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,8 +32,7 @@ public class ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final MovieRepository movieRepository;
     private final ScreenRepository screenRepository;
-    private final ReservationRepository reservationRepository;
-    private final ReservationSeatRepository reservationSeatRepository;
+    private final ScheduleSeatRepository scheduleSeatRepository;
 
     public ScheduleResponse createSchedule(ScheduleCreateRequest request) {
         Movie movie = findMovieById(request.movieId());
@@ -43,8 +41,14 @@ public class ScheduleService {
         validateScreenTime(request.startTime(), request.endTime(),movie.getRunningTime());
         validateSchedule(screen, request.startTime(), request.endTime());
 
-        Schedule schedule = Schedule.of(movie, screen, request.startTime(), request.endTime());
+        Schedule schedule = Schedule.builder()
+                .movie(movie)
+                .screen(screen)
+                .startTime(request.startTime())
+                .endTime(request.endTime())
+                .build();
         Schedule savedSchedule = scheduleRepository.save(schedule);
+        scheduleSeatRepository.saveAll(createScheduleSeats(savedSchedule, screen));
 
         return ScheduleResponse.from(savedSchedule);
     }
@@ -64,9 +68,9 @@ public class ScheduleService {
     @Transactional(readOnly = true)
     public ScheduleSeatResponse findScheduleWithSeatStatus(Long scheduleId) {
         Schedule schedule = findScheduleById(scheduleId);
-        Set<Long> reservedSeatIds = findReservedSeatIdsByScheduleId(scheduleId);
+        List<ScheduleSeat> seats = scheduleSeatRepository.findAllByScheduleScheduleIdOrderBySeatRowAscSeatColAsc(scheduleId);
 
-        return ScheduleSeatResponse.from(schedule, reservedSeatIds);
+        return ScheduleSeatResponse.from(schedule, seats, LocalDateTime.now());
     }
     // =================================================================================================================
     private Movie findMovieById(Long id) {
@@ -81,11 +85,18 @@ public class ScheduleService {
         return scheduleRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
     }
-    private Set<Long> findReservedSeatIdsByScheduleId(Long scheduleId) {
-        List<ReservationSeat> reservedSeats = reservationSeatRepository.findAllByScheduleId(scheduleId);
-        return reservedSeats.stream()
-                .map(reservationSeat  -> reservationSeat.getSeat().getSeatId())
-                .collect(Collectors.toSet());
+    private List<ScheduleSeat> createScheduleSeats(Schedule schedule, Screen screen) {
+        List<ScheduleSeat> seats = new ArrayList<>();
+        for (int row = 1; row <= screen.getRowCount(); row++) {
+            for (int col = 1; col <= screen.getColCount(); col++) {
+                seats.add(ScheduleSeat.builder()
+                        .schedule(schedule)
+                        .seatRow(row)
+                        .seatCol(col)
+                        .build());
+            }
+        }
+        return seats;
     }
     // =================================================================================================================
     private void validateScreenTime(LocalDateTime startTime, LocalDateTime endTime, Integer runningTime) {

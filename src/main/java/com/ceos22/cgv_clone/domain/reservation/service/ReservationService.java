@@ -7,17 +7,17 @@ import com.ceos22.cgv_clone.domain.member.repository.MemberRepository;
 import com.ceos22.cgv_clone.domain.reservation.dto.request.ReservationCreateRequest;
 import com.ceos22.cgv_clone.domain.reservation.dto.response.ReservationResponse;
 import com.ceos22.cgv_clone.domain.reservation.entity.Reservation;
-import com.ceos22.cgv_clone.domain.reservation.entity.ReservationSeat;
 import com.ceos22.cgv_clone.domain.reservation.entity.Schedule;
+import com.ceos22.cgv_clone.domain.reservation.entity.ScheduleSeat;
 import com.ceos22.cgv_clone.domain.reservation.repository.ReservationRepository;
-import com.ceos22.cgv_clone.domain.reservation.repository.ReservationSeatRepository;
 import com.ceos22.cgv_clone.domain.reservation.repository.ScheduleRepository;
-import com.ceos22.cgv_clone.domain.theater.entity.Seat;
-import com.ceos22.cgv_clone.domain.theater.repository.SeatRepository;
+import com.ceos22.cgv_clone.domain.reservation.repository.ScheduleSeatRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,28 +26,33 @@ import java.util.stream.Collectors;
 @Transactional
 public class ReservationService {
 
+    // How long seats stay held while the member completes payment
+    private static final Duration HOLD_DURATION = Duration.ofMinutes(10);
+    // TODO: replace with ScreenType x AudienceType pricing once price rules are decided
+    private static final int TICKET_PRICE = 10_000;
+
     private final ReservationRepository reservationRepository;
-    private final ReservationSeatRepository reservationSeatRepository;
     private final MemberRepository memberRepository; // MemberRepository 주입
     private final ScheduleRepository scheduleRepository;
-    private final SeatRepository seatRepository;
+    private final ScheduleSeatRepository scheduleSeatRepository;
 
     public ReservationResponse createReservation(Long memberId, ReservationCreateRequest request) {
         Member member = findMemberById(memberId);
         Schedule schedule = findScheduleById(request.scheduleId());
-        List<Seat> seats = findSeatsByIds(request.seatIds());
 
-        if(seats.size() != request.seatIds().size()) {
+        List<Long> scheduleSeatIds = request.scheduleSeatIds().stream().distinct().toList();
+        List<ScheduleSeat> seats = scheduleSeatRepository.findAllForUpdate(schedule.getScheduleId(), scheduleSeatIds);
+        if(seats.size() != scheduleSeatIds.size()) {
             throw new CustomException(ErrorCode.SEAT_NOT_FOUND);
         }
 
-        validateNotReserved(schedule, request.seatIds());
-
-        // 이후 가격 정책 도입 후 수정
-        int totalPrice = 10000 * seats.size();
-
-        Reservation reservation = Reservation.create(member, schedule, totalPrice);
-        reserveSeats(reservation, seats);
+        LocalDateTime now = LocalDateTime.now();
+        Reservation reservation = Reservation.builder()
+                .member(member)
+                .schedule(schedule)
+                .totalPrice(totalPriceOf(seats))
+                .build();
+        reservation.holdSeats(seats, now.plus(HOLD_DURATION), now);
         reservationRepository.save(reservation);
 
         return ReservationResponse.from(reservation);
@@ -64,6 +69,7 @@ public class ReservationService {
     }
 
     //==================================================================================================================
+
     public Member findMemberById(Long id) {
         return memberRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
@@ -74,24 +80,12 @@ public class ReservationService {
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
     }
 
-    public List<Seat> findSeatsByIds(List<Long> seatIds) {
-        return seatRepository.findAllById(seatIds);
+    private int totalPriceOf(List<ScheduleSeat> seats) {
+        return TICKET_PRICE * seats.size();
     }
 
     public List<Reservation> findReservationByMember(Member member) {
         return reservationRepository.findByMember(member)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
-    }
-    //==================================================================================================================
-    private void validateNotReserved(Schedule schedule, List<Long> seatIds) {
-        if(reservationSeatRepository.existsByScheduleIdAndSeatIds(schedule.getScheduleId(), seatIds))
-            throw new CustomException(ErrorCode.SEAT_ALREADY_RESERVED);
-    }
-    //==================================================================================================================
-    private void reserveSeats(Reservation reservation, List<Seat> seats) {
-        for(Seat seat : seats) {
-            ReservationSeat newSeat = ReservationSeat.create(seat);
-            reservation.addReservationSeat(newSeat);
-        }
     }
 }

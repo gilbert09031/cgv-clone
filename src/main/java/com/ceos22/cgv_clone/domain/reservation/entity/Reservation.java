@@ -1,10 +1,17 @@
 package com.ceos22.cgv_clone.domain.reservation.entity;
 
 import com.ceos22.cgv_clone.common.entity.BaseEntity;
+import com.ceos22.cgv_clone.common.error.CustomException;
+import com.ceos22.cgv_clone.common.error.ErrorCode;
 import com.ceos22.cgv_clone.domain.member.entity.Member;
+import com.ceos22.cgv_clone.domain.payment.entity.Payment;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,30 +37,72 @@ public class Reservation extends BaseEntity {
 
     // 좌석별로 취소 불가
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 30)
     private ReservationStatus status;
+
+    // Null until a payment is requested for the held seats
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "payment_id", unique = true)
+    private Payment payment;
 
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL)
     private List<ReservationSeat> reservationSeats = new ArrayList<>();
 
-    @Builder(access = AccessLevel.PRIVATE)
+    @Builder
     public Reservation(Member member, Schedule schedule, Integer totalPrice) {
         this.member = member;
         this.schedule = schedule;
         this.totalPrice = totalPrice;
+        this.status = ReservationStatus.PENDING;
+    }
+
+    /** @throws CustomException SEAT_ALREADY_RESERVED when any seat is held or owned by another reservation */
+    public void holdSeats(List<ScheduleSeat> seats, LocalDateTime expiresAt, LocalDateTime now) {
+        validateStatus(ReservationStatus.PENDING);
+        for (ScheduleSeat seat : seats) {
+            if (!seat.getSchedule().getScheduleId().equals(schedule.getScheduleId())) {
+                throw new CustomException(ErrorCode.SEAT_NOT_FOUND);
+            }
+            seat.hold(this, expiresAt, now);
+            reservationSeats.add(ReservationSeat.builder()
+                    .reservation(this)
+                    .scheduleSeat(seat)
+                    .build());
+        }
+    }
+
+    public void linkPayment(Payment payment) {
+        validateStatus(ReservationStatus.PENDING);
+        this.payment = payment;
+    }
+
+    public void confirm() {
+        validateStatus(ReservationStatus.PENDING);
+        reservationSeats.forEach(reservationSeat -> reservationSeat.getScheduleSeat().confirm(this));
         this.status = ReservationStatus.CONFIRMED;
     }
 
-    public static Reservation create(Member member, Schedule schedule, Integer totalPrice) {
-        return Reservation.builder()
-                .member(member)
-                .schedule(schedule)
-                .totalPrice(totalPrice)
-                .build();
+    public void cancel() {
+        if (status != ReservationStatus.PENDING && status != ReservationStatus.CONFIRMED) {
+            throw new CustomException(ErrorCode.INVALID_RESERVATION_STATUS);
+        }
+        releaseSeats();
+        this.status = ReservationStatus.CANCELED;
     }
 
-    public void addReservationSeat(ReservationSeat reservationSeat) {
-        reservationSeats.add(reservationSeat);
-        reservationSeat.setReservation(this);
+    public void expire() {
+        validateStatus(ReservationStatus.PENDING);
+        releaseSeats();
+        this.status = ReservationStatus.EXPIRED;
+    }
+
+    private void releaseSeats() {
+        reservationSeats.forEach(reservationSeat -> reservationSeat.getScheduleSeat().release(this));
+    }
+
+    private void validateStatus(ReservationStatus expected) {
+        if (status != expected) {
+            throw new CustomException(ErrorCode.INVALID_RESERVATION_STATUS);
+        }
     }
 }

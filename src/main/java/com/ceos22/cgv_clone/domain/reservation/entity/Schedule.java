@@ -3,15 +3,17 @@ package com.ceos22.cgv_clone.domain.reservation.entity;
 import com.ceos22.cgv_clone.domain.movie.entity.Movie;
 import com.ceos22.cgv_clone.domain.theater.entity.Screen;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Table(indexes = @Index(name = "idx_schedule_screen_start_time", columnList = "screen_id, start_time"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Builder
-@AllArgsConstructor
 public class Schedule {
 
     @Id
@@ -32,14 +34,11 @@ public class Schedule {
     @Column(nullable = false)
     private LocalDateTime endTime;
 
-    private Schedule(Movie movie, Screen screen, LocalDateTime startTime, LocalDateTime endTime) {
+    @Builder
+    public Schedule(Movie movie, Screen screen, LocalDateTime startTime, LocalDateTime endTime) {
         this.movie = movie;
         this.screen = screen;
         this.startTime = startTime;
         this.endTime = endTime;
-    }
-
-    public static Schedule of(Movie movie, Screen screen, LocalDateTime startTime, LocalDateTime endTime) {
-        return new Schedule(movie, screen, startTime, endTime);
     }
 }
