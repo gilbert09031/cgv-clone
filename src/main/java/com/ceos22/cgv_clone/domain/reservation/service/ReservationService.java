@@ -16,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -26,8 +25,6 @@ import java.util.stream.Collectors;
 @Transactional
 public class ReservationService {
 
-    // How long seats stay held while the member completes payment
-    private static final Duration HOLD_DURATION = Duration.ofMinutes(10);
     // TODO: replace with ScreenType x AudienceType pricing once price rules are decided
     private static final int TICKET_PRICE = 10_000;
 
@@ -52,7 +49,7 @@ public class ReservationService {
                 .schedule(schedule)
                 .totalPrice(totalPriceOf(seats))
                 .build();
-        reservation.holdSeats(seats, now.plus(HOLD_DURATION), now);
+        reservation.holdSeats(seats, now);
         reservationRepository.save(reservation);
 
         return ReservationResponse.from(reservation);

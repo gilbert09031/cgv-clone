@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,9 @@ import java.util.List;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Reservation extends BaseEntity {
+
+    // How long seats stay held while the member completes payment.
+    private static final Duration HOLD_DURATION = Duration.ofMinutes(10);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,8 +55,9 @@ public class Reservation extends BaseEntity {
     }
 
     /** @throws CustomException SEAT_ALREADY_RESERVED when any seat is held or owned by another reservation */
-    public void holdSeats(List<ScheduleSeat> seats, LocalDateTime expiresAt, LocalDateTime now) {
+    public void holdSeats(List<ScheduleSeat> seats, LocalDateTime now) {
         validateStatus(ReservationStatus.PENDING);
+        LocalDateTime expiresAt = now.plus(HOLD_DURATION);
         for (ScheduleSeat seat : seats) {
             if (!seat.getSchedule().getScheduleId().equals(schedule.getScheduleId())) {
                 throw new CustomException(ErrorCode.SEAT_NOT_FOUND);
@@ -63,6 +68,35 @@ public class Reservation extends BaseEntity {
                     .scheduleSeat(seat)
                     .build());
         }
+    }
+
+    /**
+     * Restart the hold from now, used right before the gateway approval so the hold outlives the gateway call
+     * @throws CustomException SEAT_HOLD_EXPIRED when any seat is no longer held by this reservation
+     */
+    public void extendHold(LocalDateTime now) {
+        validateStatus(ReservationStatus.PENDING);
+        LocalDateTime expiresAt = now.plus(HOLD_DURATION);
+        reservationSeats.forEach(reservationSeat -> reservationSeat.getScheduleSeat().extendHold(this, expiresAt, now));
+    }
+
+    public boolean isOwnedBy(Long memberId) {
+        return member.getMemberId().equals(memberId);
+    }
+
+    public boolean isPending() {
+        return status == ReservationStatus.PENDING;
+    }
+
+    // Every seat still held by this reservation. Checks only; nothing is locked or changed
+    public boolean hasValidHoldAt(LocalDateTime now) {
+        return !reservationSeats.isEmpty()
+                && reservationSeats.stream().allMatch(reservationSeat -> reservationSeat.getScheduleSeat().isHeldBy(this, now));
+    }
+
+    // Title shown in the payment widget, e.g. "영화명 2매"
+    public String summaryName() {
+        return String.format("%s %d매", schedule.getMovie().getTitle(), reservationSeats.size());
     }
 
     public void confirm() {

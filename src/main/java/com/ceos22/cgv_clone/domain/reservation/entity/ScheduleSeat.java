@@ -66,8 +66,21 @@ public class ScheduleSeat {
         this.holdExpiresAt = expiresAt;
     }
 
+    // The boundary matches isAvailableAt: a hold is still valid at exactly holdExpiresAt
+    boolean isHeldBy(Reservation reservation, LocalDateTime now) {
+        return status == SeatStatus.HELD && belongsTo(reservation) && !holdExpiresAt.isBefore(now);
+    }
+
+    /** @throws CustomException SEAT_HOLD_EXPIRED when the hold expired or moved to another reservation */
+    void extendHold(Reservation reservation, LocalDateTime expiresAt, LocalDateTime now) {
+        if (!isHeldBy(reservation, now)) {
+            throw new CustomException(ErrorCode.SEAT_HOLD_EXPIRED);
+        }
+        this.holdExpiresAt = expiresAt;
+    }
+
     void confirm(Reservation reservation) {
-        if (status != SeatStatus.HELD || !isHeldBy(reservation)) {
+        if (status != SeatStatus.HELD || !belongsTo(reservation)) {
             throw new CustomException(ErrorCode.INVALID_RESERVATION_STATUS);
         }
         this.status = SeatStatus.RESERVED;
@@ -76,7 +89,7 @@ public class ScheduleSeat {
 
     // No-op when an expired hold was already taken over by another reservation
     void release(Reservation reservation) {
-        if (!isHeldBy(reservation)) {
+        if (!belongsTo(reservation)) {
             return;
         }
         this.status = SeatStatus.AVAILABLE;
@@ -84,7 +97,7 @@ public class ScheduleSeat {
         this.holdExpiresAt = null;
     }
 
-    private boolean isHeldBy(Reservation reservation) {
+    private boolean belongsTo(Reservation reservation) {
         return this.reservation != null && this.reservation == reservation;
     }
 }
