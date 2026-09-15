@@ -4,7 +4,6 @@ import com.ceos22.cgv_clone.common.entity.BaseEntity;
 import com.ceos22.cgv_clone.common.error.CustomException;
 import com.ceos22.cgv_clone.common.error.ErrorCode;
 import com.ceos22.cgv_clone.domain.member.entity.Member;
-import com.ceos22.cgv_clone.domain.payment.entity.Payment;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -40,11 +39,6 @@ public class Reservation extends BaseEntity {
     @Column(nullable = false, length = 30)
     private ReservationStatus status;
 
-    // Null until a payment is requested for the held seats
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "payment_id", unique = true)
-    private Payment payment;
-
     @OneToMany(mappedBy = "reservation", cascade = CascadeType.ALL)
     private List<ReservationSeat> reservationSeats = new ArrayList<>();
 
@@ -69,11 +63,6 @@ public class Reservation extends BaseEntity {
                     .scheduleSeat(seat)
                     .build());
         }
-    }
-
-    public void linkPayment(Payment payment) {
-        validateStatus(ReservationStatus.PENDING);
-        this.payment = payment;
     }
 
     public void confirm() {
