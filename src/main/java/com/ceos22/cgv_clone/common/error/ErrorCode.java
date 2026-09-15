@@ -18,6 +18,7 @@ public enum ErrorCode {
     CART_EMPTY(HttpStatus.BAD_REQUEST, "O002", "빈 장바구니는 주문할 수 없습니다."),
     ORDER_ALREADY_CANCELLED(HttpStatus.BAD_REQUEST, "O004", "이미 취소된 주문입니다."),
     ORDER_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "O005", "이미 완료된 주문입니다."),
+    INVALID_RESERVATION_STATUS(HttpStatus.BAD_REQUEST, "R002", "유효하지 않은 예매 상태입니다."),
 
     // 401 Unauthorized
     AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "A001", "인증에 실패했습니다."),
