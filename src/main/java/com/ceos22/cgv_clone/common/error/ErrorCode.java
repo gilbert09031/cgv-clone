@@ -35,8 +35,7 @@ public enum ErrorCode {
     // 404 Not Found
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "C005", "요청한 리소스를 찾을 수 없습니다."),
     MOVIE_NOT_FOUND(HttpStatus.NOT_FOUND, "M001", "요청한 영화를 찾을 수 없습니다."),
-    DIRECTOR_NOT_FOUND(HttpStatus.NOT_FOUND, "M002", "해당 감독을 찾을 수 없습니다."),
-    ACTOR_NOT_FOUND(HttpStatus.NOT_FOUND, "M003", "해당 배우를 찾을 수 없습니다."),
+    PERSON_NOT_FOUND(HttpStatus.NOT_FOUND, "M002", "해당 인물을 찾을 수 없습니다."),
     THEATER_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "요청한 영화관을 찾을 수 없습니다."),
     REGION_NOT_FOUND(HttpStatus.NOT_FOUND, "T002", "해당 지역을 찾을 수 없습니다."),
     SCREEN_NOT_FOUND(HttpStatus.NOT_FOUND, "T003", "요청한 상영관을 찾을 수 없습니다."),

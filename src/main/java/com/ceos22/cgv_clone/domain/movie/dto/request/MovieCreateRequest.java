@@ -1,12 +1,15 @@
 package com.ceos22.cgv_clone.domain.movie.dto.request;
 
+import com.ceos22.cgv_clone.domain.movie.entity.CreditRole;
 import com.ceos22.cgv_clone.domain.movie.entity.Genre;
 import com.ceos22.cgv_clone.domain.movie.entity.MovieStatus;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
+/** @param credits listed in the order shown on the movie detail page */
 public record MovieCreateRequest (
         @NotBlank(message = "영화 제목은 필수입니다")
         String title,
@@ -23,11 +26,17 @@ public record MovieCreateRequest (
         @NotBlank(message = "포스터 이미지는 필수입니다")
         String posterUrl,
 
-        @NotNull(message = "감독 ID는 필수입니다.")
-        Long directorId,
-
-        @NotNull(message = "배우 ID 목록은 필수입니다")
-        List<Long> actorIds
+        @NotNull(message = "크레딧 목록은 필수입니다")
+        List<@Valid CreditRequest> credits
 ) {
+    public record CreditRequest(
+            @NotNull(message = "인물 ID는 필수입니다")
+            Long personId,
 
+            @NotNull(message = "역할은 필수입니다")
+            CreditRole role,
+
+            String characterName
+    ) {
+    }
 }
