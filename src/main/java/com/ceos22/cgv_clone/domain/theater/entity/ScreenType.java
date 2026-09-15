@@ -1,6 +1,7 @@
 package com.ceos22.cgv_clone.domain.theater.entity;
 
 public enum ScreenType {
+    NORMAL("일반관"),
     SCREENX("SCREENX"),
     FOUR_DX("4DX"),
     IMAX("IMAX"),
