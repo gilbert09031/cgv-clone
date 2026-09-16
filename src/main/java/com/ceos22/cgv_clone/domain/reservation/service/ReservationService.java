@@ -4,9 +4,12 @@ import com.ceos22.cgv_clone.common.error.CustomException;
 import com.ceos22.cgv_clone.common.error.ErrorCode;
 import com.ceos22.cgv_clone.domain.member.entity.Member;
 import com.ceos22.cgv_clone.domain.member.repository.MemberRepository;
+import com.ceos22.cgv_clone.domain.payment.entity.PaymentTargetType;
+import com.ceos22.cgv_clone.domain.payment.service.PaymentProgressReader;
 import com.ceos22.cgv_clone.domain.reservation.dto.request.ReservationCreateRequest;
 import com.ceos22.cgv_clone.domain.reservation.dto.response.ReservationResponse;
 import com.ceos22.cgv_clone.domain.reservation.entity.Reservation;
+import com.ceos22.cgv_clone.domain.reservation.entity.ReservationStatus;
 import com.ceos22.cgv_clone.domain.reservation.entity.Schedule;
 import com.ceos22.cgv_clone.domain.reservation.entity.ScheduleSeat;
 import com.ceos22.cgv_clone.domain.reservation.repository.ReservationRepository;
@@ -32,10 +35,13 @@ public class ReservationService {
     private final MemberRepository memberRepository; // MemberRepository 주입
     private final ScheduleRepository scheduleRepository;
     private final ScheduleSeatRepository scheduleSeatRepository;
+    private final PaymentProgressReader paymentProgressReader;
 
     public ReservationResponse createReservation(Long memberId, ReservationCreateRequest request) {
         Member member = findMemberById(memberId);
         Schedule schedule = findScheduleById(request.scheduleId());
+
+        releasePendingReservations(member, schedule);
 
         List<Long> scheduleSeatIds = request.scheduleSeatIds().stream().distinct().toList();
         List<ScheduleSeat> seats = scheduleSeatRepository.findAllForUpdate(schedule.getScheduleId(), scheduleSeatIds);
@@ -75,6 +81,18 @@ public class ReservationService {
     public Schedule findScheduleById(Long id) {
         return scheduleRepository.findById(id)
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
+    }
+
+    private void releasePendingReservations(Member member, Schedule schedule) {
+        List<Reservation> pendingReservations = reservationRepository
+                .findAllWithSeatsByMemberAndScheduleAndStatus(member, schedule, ReservationStatus.PENDING);
+
+        for (Reservation reservation : pendingReservations) {
+            if (paymentProgressReader.hasApprovalInProgress(PaymentTargetType.RESERVATION, reservation.getReservationId())) {
+                throw new CustomException(ErrorCode.RESERVATION_PAYMENT_IN_PROGRESS);
+            }
+            reservation.cancel();
+        }
     }
 
     private int totalPriceOf(List<ScheduleSeat> seats) {

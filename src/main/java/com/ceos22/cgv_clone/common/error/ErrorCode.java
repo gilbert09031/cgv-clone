@@ -55,6 +55,7 @@ public enum ErrorCode {
     SCHEDULE_CONFLICT(HttpStatus.CONFLICT, "S002", "해당 시간에 이미 다른 스케줄이 존재합니다."),
     SEAT_ALREADY_RESERVED(HttpStatus.CONFLICT, "R001", "이미 예매된 좌석입니다."),
     SEAT_HOLD_EXPIRED(HttpStatus.CONFLICT, "R003", "좌석 선점 시간이 만료되었습니다. 좌석을 다시 선택해 주세요."),
+    RESERVATION_PAYMENT_IN_PROGRESS(HttpStatus.CONFLICT, "R004", "결제가 진행 중인 예매가 있습니다. 결제를 마치거나 잠시 후 다시 시도해 주세요."),
     DUPLICATED_EMAIL(HttpStatus.CONFLICT, "A005", "이미 존재하는 이메일입니다."),
 
     // 500 Internal Server Error
