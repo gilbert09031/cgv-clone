@@ -20,4 +20,10 @@ public interface ScheduleSeatRepository extends JpaRepository<ScheduleSeat, Long
             "ORDER BY s.scheduleSeatId")
     List<ScheduleSeat> findAllForUpdate(@Param("scheduleId") Long scheduleId,
                                         @Param("scheduleSeatIds") List<Long> scheduleSeatIds);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM ScheduleSeat s " +
+            "WHERE s.reservation.reservationId = :reservationId " +
+            "ORDER BY s.scheduleSeatId")
+    List<ScheduleSeat> findAllForUpdateByReservationId(@Param("reservationId") Long reservationId);
 }

@@ -16,6 +16,8 @@ import com.ceos22.cgv_clone.domain.reservation.repository.ReservationRepository;
 import com.ceos22.cgv_clone.domain.reservation.repository.ScheduleRepository;
 import com.ceos22.cgv_clone.domain.reservation.repository.ScheduleSeatRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class ReservationService {
 
     // TODO: replace with ScreenType x AudienceType pricing once price rules are decided
@@ -59,6 +62,30 @@ public class ReservationService {
         reservationRepository.save(reservation);
 
         return ReservationResponse.from(reservation);
+    }
+
+    /**
+     * Take the seats out of reach of other members for the whole approval, run before the gateway is called.
+     * Locks the seat rows and restarts the hold, so an expired hold fails here instead of after the money moved
+     * @throws CustomException SEAT_HOLD_EXPIRED when a seat is no longer held by this reservation
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void preemptSeatsForPayment(Long reservationId) {
+        Reservation reservation = findReservationWithSeats(reservationId);
+
+        List<ScheduleSeat> lockedSeats = scheduleSeatRepository.findAllForUpdateByReservationId(reservationId);
+        if (lockedSeats.size() != reservation.getReservationSeats().size()) {
+            throw new CustomException(ErrorCode.SEAT_HOLD_EXPIRED);
+        }
+        reservation.extendHold(LocalDateTime.now());
+
+        log.info("event=reservation.seats_preempted, reservationId={}, seats={}", reservationId, lockedSeats.size());
+    }
+
+    @Transactional(readOnly = true)
+    public Reservation findReservationWithSeats(Long reservationId) {
+        return reservationRepository.findWithSeatsById(reservationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.RESERVATION_NOT_FOUND));
     }
 
     @Transactional(readOnly = true)

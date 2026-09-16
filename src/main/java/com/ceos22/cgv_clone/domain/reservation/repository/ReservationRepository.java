@@ -15,6 +15,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     Optional<List<Reservation>> findByMember(Member member);
 
+    @Query("SELECT r FROM Reservation r " +
+            "JOIN FETCH r.reservationSeats rs " +
+            "JOIN FETCH rs.scheduleSeat " +
+            "JOIN FETCH r.schedule s " +
+            "JOIN FETCH s.movie " +
+            "WHERE r.reservationId = :reservationId")
+    Optional<Reservation> findWithSeatsById(@Param("reservationId") Long reservationId);
+
     @Query("SELECT DISTINCT r FROM Reservation r " +
             "JOIN FETCH r.reservationSeats rs " +
             "JOIN FETCH rs.scheduleSeat " +
