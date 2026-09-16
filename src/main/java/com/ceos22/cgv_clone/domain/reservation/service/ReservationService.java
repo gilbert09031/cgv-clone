@@ -82,6 +82,23 @@ public class ReservationService {
         log.info("event=reservation.seats_preempted, reservationId={}, seats={}", reservationId, lockedSeats.size());
     }
 
+    // Payment is confirmed, so this only transits the reservation state
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void confirmReservationAfterPayment(Long reservationId) {
+        Reservation reservation = findReservationWithSeats(reservationId);
+        reservation.confirm();
+
+        log.info("event=reservation.confirmed, reservationId={}", reservationId);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void cancelReservationAfterPaymentCancel(Long reservationId) {
+        Reservation reservation = findReservationWithSeats(reservationId);
+        reservation.cancel();
+
+        log.info("event=reservation.cancelled, reservationId={}", reservationId);
+    }
+
     @Transactional(readOnly = true)
     public Reservation findReservationWithSeats(Long reservationId) {
         return reservationRepository.findWithSeatsById(reservationId)

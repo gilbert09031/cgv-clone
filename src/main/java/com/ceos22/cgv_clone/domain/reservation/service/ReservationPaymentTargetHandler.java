@@ -50,16 +50,15 @@ public class ReservationPaymentTargetHandler implements PaymentTargetHandler {
 
     @Override
     public void onApproved(Long targetId) {
-        throw new UnsupportedOperationException("TODO: confirm the reservation");
+        reservationService.confirmReservationAfterPayment(targetId);
     }
 
     @Override
     public void onApprovalFailed(Long targetId) {
-        throw new UnsupportedOperationException("TODO: decide what a rejected approval leaves behind");
     }
 
     @Override
     public void onCancelled(Long targetId) {
-        throw new UnsupportedOperationException("TODO: cancel the reservation");
+        reservationService.cancelReservationAfterPaymentCancel(targetId);
     }
 }
