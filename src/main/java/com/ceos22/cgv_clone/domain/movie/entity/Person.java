@@ -5,16 +5,15 @@ import lombok.*;
 
 import java.time.LocalDate;
 
+/** Film maker or cast member. One row per real person, whatever roles they take across movies */
 @Entity
 @Getter
-@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
-public class Actor {
+public class Person {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long actorId;
+    private Long personId;
 
     @Column(nullable = false)
     private String name;
@@ -22,4 +21,11 @@ public class Actor {
     private LocalDate birthDate;
 
     private String profileImageUrl;
+
+    @Builder
+    public Person(String name, LocalDate birthDate, String profileImageUrl) {
+        this.name = name;
+        this.birthDate = birthDate;
+        this.profileImageUrl = profileImageUrl;
+    }
 }

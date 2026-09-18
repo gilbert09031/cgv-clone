@@ -22,13 +22,13 @@ public record ReservationResponse(
         ReservationStatus status
 ) {
     public record SeatInfo(
-            String rowName,
-            String columnNumber
+            Integer seatRow,
+            Integer seatCol
     ) {
         public static SeatInfo from(ReservationSeat reservationSeat) {
             return new SeatInfo(
-                    reservationSeat.getSeat().getRowName(),
-                    reservationSeat.getSeat().getColumnNumber()
+                    reservationSeat.getScheduleSeat().getSeatRow(),
+                    reservationSeat.getScheduleSeat().getSeatCol()
             );
         }
     }

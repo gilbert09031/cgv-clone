@@ -18,6 +18,7 @@ public enum ErrorCode {
     CART_EMPTY(HttpStatus.BAD_REQUEST, "O002", "빈 장바구니는 주문할 수 없습니다."),
     ORDER_ALREADY_CANCELLED(HttpStatus.BAD_REQUEST, "O004", "이미 취소된 주문입니다."),
     ORDER_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "O005", "이미 완료된 주문입니다."),
+    INVALID_RESERVATION_STATUS(HttpStatus.BAD_REQUEST, "R002", "유효하지 않은 예매 상태입니다."),
 
     // 401 Unauthorized
     AUTHENTICATION_FAILED(HttpStatus.UNAUTHORIZED, "A001", "인증에 실패했습니다."),
@@ -34,14 +35,14 @@ public enum ErrorCode {
     // 404 Not Found
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "C005", "요청한 리소스를 찾을 수 없습니다."),
     MOVIE_NOT_FOUND(HttpStatus.NOT_FOUND, "M001", "요청한 영화를 찾을 수 없습니다."),
-    DIRECTOR_NOT_FOUND(HttpStatus.NOT_FOUND, "M002", "해당 감독을 찾을 수 없습니다."),
-    ACTOR_NOT_FOUND(HttpStatus.NOT_FOUND, "M003", "해당 배우를 찾을 수 없습니다."),
+    PERSON_NOT_FOUND(HttpStatus.NOT_FOUND, "M002", "해당 인물을 찾을 수 없습니다."),
     THEATER_NOT_FOUND(HttpStatus.NOT_FOUND, "T001", "요청한 영화관을 찾을 수 없습니다."),
     REGION_NOT_FOUND(HttpStatus.NOT_FOUND, "T002", "해당 지역을 찾을 수 없습니다."),
     SCREEN_NOT_FOUND(HttpStatus.NOT_FOUND, "T003", "요청한 상영관을 찾을 수 없습니다."),
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "S003", "요청한 상영 일정을 찾을 수 없습니다."),
     MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "A003", "해당 사용자를 찾을 수 없습니다."),
     SEAT_NOT_FOUND(HttpStatus.NOT_FOUND, "T004", "요청한 좌석을 찾을 수 없습니다."),
+    RESERVATION_NOT_FOUND(HttpStatus.NOT_FOUND, "R005", "요청한 예매를 찾을 수 없습니다."),
     STORE_NOT_FOUND(HttpStatus.NOT_FOUND, "T005", "요청한 매점을 찾을 수 없습니다."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "T006", "요청한 상품을 찾을 수 없습니다."),
     STOCK_NOT_FOUND(HttpStatus.NOT_FOUND, "T007", "해당 매점에서 상품 정보를 찾을 수 없습니다."),
@@ -54,6 +55,8 @@ public enum ErrorCode {
     DUPLICATED_RESOURCE(HttpStatus.CONFLICT, "C008", "이미 존재하는 데이터입니다"),
     SCHEDULE_CONFLICT(HttpStatus.CONFLICT, "S002", "해당 시간에 이미 다른 스케줄이 존재합니다."),
     SEAT_ALREADY_RESERVED(HttpStatus.CONFLICT, "R001", "이미 예매된 좌석입니다."),
+    SEAT_HOLD_EXPIRED(HttpStatus.CONFLICT, "R003", "좌석 선점 시간이 만료되었습니다. 좌석을 다시 선택해 주세요."),
+    RESERVATION_PAYMENT_IN_PROGRESS(HttpStatus.CONFLICT, "R004", "결제가 진행 중인 예매가 있습니다. 결제를 마치거나 잠시 후 다시 시도해 주세요."),
     DUPLICATED_EMAIL(HttpStatus.CONFLICT, "A005", "이미 존재하는 이메일입니다."),
 
     // 500 Internal Server Error

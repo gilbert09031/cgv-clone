@@ -4,7 +4,6 @@ import com.ceos22.cgv_clone.domain.movie.entity.*;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public record MovieDetailResponse(
         Long movieId,
@@ -14,25 +13,19 @@ public record MovieDetailResponse(
         Integer runningTime,
         LocalDate releaseDate,
         String posterUrl,
-        DirectorSimpleInfo director,
-        List<ActorSimpleInfo> actors
+        List<CreditInfo> directors,
+        List<CreditInfo> actors
 ) {
-    public record ActorSimpleInfo(Long actorId, String name, String profileImageUrl) {
-        public static ActorSimpleInfo from(Actor actor) {
-            return new ActorSimpleInfo(actor.getActorId(), actor.getName(), actor.getProfileImageUrl());
+    public record CreditInfo(Long personId, String name, String profileImageUrl, String characterName) {
+        public static CreditInfo from(MovieCredit credit) {
+            Person person = credit.getPerson();
+            return new CreditInfo(person.getPersonId(), person.getName(), person.getProfileImageUrl(),
+                    credit.getCharacterName());
         }
     }
-    public record DirectorSimpleInfo(Long directorId, String name, String profileImageUrl) {
-        public static DirectorSimpleInfo from(Director director) {
-            return new DirectorSimpleInfo(director.getDirectorId(), director.getName(), director.getProfileImageUrl());
-        }
-    }
-    public static MovieDetailResponse from(Movie movie) {
-        DirectorSimpleInfo directorSimpleInfo = DirectorSimpleInfo.from(movie.getDirector());
-        List<ActorSimpleInfo> actorSimpleInfos = movie.getActors().stream()
-                .map(ActorSimpleInfo::from)
-                .collect(Collectors.toList());
 
+    // credits must already be ordered by displayOrder
+    public static MovieDetailResponse from(Movie movie, List<MovieCredit> credits) {
         return new MovieDetailResponse(
                 movie.getMovieId(),
                 movie.getTitle(),
@@ -41,8 +34,15 @@ public record MovieDetailResponse(
                 movie.getRunningTime(),
                 movie.getReleaseDate(),
                 movie.getPosterUrl(),
-                directorSimpleInfo,
-                actorSimpleInfos
+                creditsOf(credits, CreditRole.DIRECTOR),
+                creditsOf(credits, CreditRole.ACTOR)
         );
+    }
+
+    private static List<CreditInfo> creditsOf(List<MovieCredit> credits, CreditRole role) {
+        return credits.stream()
+                .filter(credit -> credit.getRole() == role)
+                .map(CreditInfo::from)
+                .toList();
     }
 }

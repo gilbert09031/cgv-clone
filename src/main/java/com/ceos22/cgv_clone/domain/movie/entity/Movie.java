@@ -4,14 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
 
 @Entity
 @Getter
-@Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
 public class Movie {
 
     @Id
@@ -21,10 +17,13 @@ public class Movie {
     @Column(nullable = false)
     private String title;
 
-    @Column(nullable = false)
+    // Set by an admin, not derived from release date or schedules
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
     private MovieStatus status;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
     private Genre genre;
 
     @Column(nullable = false)
@@ -36,15 +35,14 @@ public class Movie {
     @Column(nullable = false)
     private String posterUrl;
 
-    @ManyToOne
-    @JoinColumn(name = "director_id")
-    private Director director;
-
-    @ManyToMany
-    @JoinTable(
-            name = "movie_actor_association",
-            joinColumns = @JoinColumn(name = "movie_id"),
-            inverseJoinColumns = @JoinColumn(name = "actor_id")
-    )
-    private List<Actor> actors = new ArrayList<>();
+    @Builder
+    public Movie(String title, MovieStatus status, Genre genre, Integer runningTime, LocalDate releaseDate,
+                 String posterUrl) {
+        this.title = title;
+        this.status = status;
+        this.genre = genre;
+        this.runningTime = runningTime;
+        this.releaseDate = releaseDate;
+        this.posterUrl = posterUrl;
+    }
 }
