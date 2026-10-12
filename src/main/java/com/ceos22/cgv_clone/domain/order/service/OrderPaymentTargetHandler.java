@@ -43,12 +43,12 @@ public class OrderPaymentTargetHandler implements PaymentTargetHandler {
 
     // ORDER policy: nothing is reserved at preparation; stock is taken here, before the Payment Gateway Confirmation
     @Override
-    public void onApprovalStarted(Long targetId) {
+    public void onApprovalStarted(Long targetId, String paymentNumber, String gatewayOrderId) {
         orderService.holdStockForPayment(targetId);
     }
 
     @Override
-    public void onApproved(Long targetId) {
+    public void onApproved(Long targetId, String paymentNumber, String gatewayOrderId) {
         orderService.confirmOrderAfterPayment(targetId);
     }
 

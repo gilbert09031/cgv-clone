@@ -44,13 +44,13 @@ public class ReservationPaymentTargetHandler implements PaymentTargetHandler {
 
     // RESERVATION policy: seats are held when the reservation is created; here the hold is locked and restarted
     @Override
-    public void onApprovalStarted(Long targetId) {
-        reservationService.preemptSeatsForPayment(targetId);
+    public void onApprovalStarted(Long targetId, String paymentNumber, String gatewayOrderId) {
+        reservationService.preemptSeatsForPayment(targetId, paymentNumber, gatewayOrderId);
     }
 
     @Override
-    public void onApproved(Long targetId) {
-        reservationService.confirmReservationAfterPayment(targetId);
+    public void onApproved(Long targetId, String paymentNumber, String gatewayOrderId) {
+        reservationService.confirmReservationAfterPayment(targetId, paymentNumber, gatewayOrderId);
     }
 
     @Override
