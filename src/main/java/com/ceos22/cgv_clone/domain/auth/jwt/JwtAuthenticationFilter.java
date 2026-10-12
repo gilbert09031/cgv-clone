@@ -42,19 +42,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             authenticate(request);
         } catch (JwtException e) {
             SecurityContextHolder.clearContext();
-            log.warn("JWT 인증 실패 [{}] - {} {} : {}",
-                    e.getErrorCode().getCode(), request.getMethod(), request.getRequestURI(), e.getMessage());
+
+            log.atDebug()
+                    .addKeyValue("event", "auth.authentication_rejected")
+                    .addKeyValue("errorCode", e.getErrorCode().getCode())
+                    .addKeyValue("statusCode", e.getErrorCode().getStatus().value())
+                    .log();
+
             errorResponseWriter.write(response, e.getErrorCode());
             return;
         } catch (CustomException e) {
             SecurityContextHolder.clearContext();
-            log.warn("사용자 인증 실패 [{}] - {} {}",
-                    e.getErrorCode().getCode(), request.getMethod(), request.getRequestURI());
+
+            log.atDebug()
+                    .addKeyValue("event", "auth.authentication_rejected")
+                    .addKeyValue("errorCode", e.getErrorCode().getCode())
+                    .addKeyValue("statusCode", ErrorCode.AUTHENTICATION_FAILED.getStatus().value())
+                    .log();
+
             errorResponseWriter.write(response, ErrorCode.AUTHENTICATION_FAILED);
             return;
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
-            log.error("인증 필터 처리 중 오류 - {} {}", request.getMethod(), request.getRequestURI(), e);
+
+            log.atError()
+                    .addKeyValue("event", "api.request.errored")
+                    .addKeyValue("errorCode", ErrorCode.INTERNAL_SERVER_ERROR.getCode())
+                    .setCause(e)
+                    .log();
+
             errorResponseWriter.write(response, ErrorCode.INTERNAL_SERVER_ERROR);
             return;
         }

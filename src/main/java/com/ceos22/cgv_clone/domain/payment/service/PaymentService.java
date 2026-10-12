@@ -2,12 +2,14 @@ package com.ceos22.cgv_clone.domain.payment.service;
 
 import com.ceos22.cgv_clone.common.error.CustomException;
 import com.ceos22.cgv_clone.common.error.ErrorCode;
+import com.ceos22.cgv_clone.common.logging.TransactionLog;
 import com.ceos22.cgv_clone.common.metrics.PaymentMetrics;
 import com.ceos22.cgv_clone.domain.payment.dto.response.PaymentPrepareResponse;
 import com.ceos22.cgv_clone.domain.payment.dto.response.PaymentResponse;
 import com.ceos22.cgv_clone.domain.payment.entity.Payment;
 import com.ceos22.cgv_clone.domain.payment.entity.PaymentMethod;
 import com.ceos22.cgv_clone.domain.payment.entity.PaymentTarget;
+import com.ceos22.cgv_clone.domain.payment.entity.PaymentTargetType;
 import com.ceos22.cgv_clone.domain.payment.gateway.GatewayApproval;
 import com.ceos22.cgv_clone.domain.payment.gateway.PaymentGateway;
 import com.ceos22.cgv_clone.domain.payment.gateway.PaymentGatewayException;
@@ -15,6 +17,7 @@ import com.ceos22.cgv_clone.domain.payment.repository.PaymentRepository;
 import com.ceos22.cgv_clone.domain.payment.target.PayableTarget;
 import com.ceos22.cgv_clone.domain.payment.target.PaymentTargetHandler;
 import com.ceos22.cgv_clone.domain.payment.target.PaymentTargetHandlers;
+import com.ceos22.cgv_clone.domain.payment.service.PaymentApprovalRecorder.ApprovalAttempt;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -70,9 +74,20 @@ public class PaymentService {
 
         Payment payment = openPaymentOf(target, memberId, payable.amount(), method);
         String gatewayOrderId = payment.startAttempt(LocalDateTime.now());
-
-        log.info("event=payment.attempt_prepared, paymentNumber={}, orderId={}, targetType={}, targetId={}, amount={}",
-                payment.getPaymentNumber(), gatewayOrderId, target.getType(), target.getId(), payment.getAmount());
+        String paymentNumber = payment.getPaymentNumber();
+        Integer amount = payment.getAmount();
+        PaymentMethod paymentMethod = payment.getMethod();
+        if (target.getType() == PaymentTargetType.RESERVATION) {
+            Long reservationId = target.getId();
+            TransactionLog.afterCommit(() -> log.atInfo()
+                    .addKeyValue("event", "payment.attempt_prepared")
+                    .addKeyValue("paymentNumber", paymentNumber)
+                    .addKeyValue("gatewayOrderId", gatewayOrderId)
+                    .addKeyValue("reservationId", reservationId)
+                    .addKeyValue("amount", amount)
+                    .addKeyValue("paymentMethod", paymentMethod)
+                    .log());
+        }
 
         return PaymentPrepareResponse.of(payment, gatewayOrderId, payable.title());
     }
@@ -87,16 +102,13 @@ public class PaymentService {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public PaymentResponse confirm(Long memberId, String gatewayOrderId, String gatewayToken, Integer amount) {
-        PaymentMethod method = preempt(memberId, gatewayOrderId, amount);
-        log.info("event=payment.approval_started, orderId={}, amount={}", gatewayOrderId, amount);
+        ApprovalAttempt attempt = preempt(memberId, gatewayOrderId, amount);
 
-        GatewayApproval approval = approve(method, gatewayOrderId, gatewayToken, amount);
+        GatewayApproval approval = approve(attempt, gatewayOrderId, gatewayToken, amount);
 
-        PaymentResponse response = recordSuccess(gatewayOrderId, approval);
+        PaymentResponse response = recordSuccess(attempt, gatewayOrderId, approval);
 
         paymentMetrics.incrementPaymentSuccess();
-        log.info("event=payment.approved, orderId={}, transactionId={}, amount={}",
-                gatewayOrderId, approval.transactionId(), amount);
 
         return response;
     }
@@ -131,14 +143,19 @@ public class PaymentService {
                 )));
     }
 
-    private PaymentMethod preempt(Long memberId, String gatewayOrderId, Integer amount) {
+    private ApprovalAttempt preempt(Long memberId, String gatewayOrderId, Integer amount) {
         for (int attempt = 1; ; attempt++) {
             try {
                 return approvalRecorder.preempt(memberId, gatewayOrderId, amount);
             } catch (OptimisticLockingFailureException e) {
                 boolean lastAttempt = attempt == MAX_PREEMPT_ATTEMPTS;
-                log.warn("event=payment.preempt_conflicted, orderId={}, attempt={}/{}, retrying={}",
-                        gatewayOrderId, attempt, MAX_PREEMPT_ATTEMPTS, !lastAttempt);
+                log.atWarn()
+                        .addKeyValue("event", "payment.preempt_conflicted")
+                        .addKeyValue("gatewayOrderId", gatewayOrderId)
+                        .addKeyValue("attempt", attempt)
+                        .addKeyValue("maxAttempts", MAX_PREEMPT_ATTEMPTS)
+                        .addKeyValue("retrying", !lastAttempt)
+                        .log();
                 if (lastAttempt) {
                     throw new CustomException(ErrorCode.PAYMENT_FAILED, "stock contention on " + gatewayOrderId);
                 }
@@ -146,31 +163,80 @@ public class PaymentService {
         }
     }
 
-    private GatewayApproval approve(PaymentMethod method, String gatewayOrderId, String gatewayToken, Integer amount) {
+    private GatewayApproval approve(ApprovalAttempt attempt, String gatewayOrderId, String gatewayToken, Integer amount) {
+        long startedNanos = System.nanoTime();
         try {
-            return gateways.get(method).approve(gatewayOrderId, gatewayToken, amount);
+            GatewayApproval approval = gateways.get(attempt.method()).approve(gatewayOrderId, gatewayToken, amount);
+            if (approval == null) {
+                throw new IllegalStateException("Gateway returned no approval");
+            }
+            logGatewayCompleted(attempt, gatewayOrderId, startedNanos, "approved", null);
+            return approval;
         } catch (PaymentGatewayException e) {
+            logGatewayCompleted(attempt, gatewayOrderId, startedNanos, "rejected", e.getFailureCode());
             // Recorded before rethrowing: throwing inside the recorder would roll the failure entry back
-            approvalRecorder.recordFailure(gatewayOrderId, e.getFailureCode(), e.getMessage());
+            try {
+                approvalRecorder.recordFailure(gatewayOrderId, e.getFailureCode(), e.getMessage());
+            } catch (RuntimeException recordError) {
+                var event = log.atError()
+                        .addKeyValue("event", "payment.failure_record_failed")
+                        .addKeyValue("paymentNumber", attempt.paymentNumber())
+                        .addKeyValue("gatewayOrderId", gatewayOrderId)
+                        .setCause(recordError);
+                addFailureCode(event, e.getFailureCode());
+                event.log();
+                throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+            }
             paymentMetrics.incrementPaymentFailure();
-            log.warn("event=payment.approval_rejected, orderId={}, failureCode={}",
-                    gatewayOrderId, e.getFailureCode());
             throw e;
         } catch (RuntimeException e) {
+            logGatewayCompleted(attempt, gatewayOrderId, startedNanos, "unknown", null);
             // Nothing is recorded: the payment stays APPROVING and the sweep settles it against the gateway
-            log.error("event=payment.approval_unknown, orderId={}", gatewayOrderId, e);
+            log.atError()
+                    .addKeyValue("event", "payment.approval_unknown")
+                    .addKeyValue("paymentNumber", attempt.paymentNumber())
+                    .addKeyValue("gatewayOrderId", gatewayOrderId)
+                    .setCause(e)
+                    .log();
             throw new CustomException(ErrorCode.PAYMENT_RESULT_UNKNOWN);
         }
     }
 
-    private PaymentResponse recordSuccess(String gatewayOrderId, GatewayApproval approval) {
+    private PaymentResponse recordSuccess(ApprovalAttempt attempt, String gatewayOrderId, GatewayApproval approval) {
         try {
             return approvalRecorder.recordSuccess(gatewayOrderId, approval);
         } catch (RuntimeException e) {
             // The gateway approved but the ledger does not know it yet; the transaction id is the key to reconcile
-            log.error("event=payment.approval_record_failed, orderId={}, transactionId={}",
-                    gatewayOrderId, approval.transactionId(), e);
+            log.atError()
+                    .addKeyValue("event", "payment.approval_record_failed")
+                    .addKeyValue("paymentNumber", attempt.paymentNumber())
+                    .addKeyValue("gatewayOrderId", gatewayOrderId)
+                    .setCause(e)
+                    .log();
             throw new CustomException(ErrorCode.PAYMENT_RESULT_UNKNOWN);
+        }
+    }
+
+    private void logGatewayCompleted(ApprovalAttempt attempt, String gatewayOrderId,
+                                     long startedNanos, String outcome, String failureCode) {
+        long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+        var event = switch (outcome) {
+            case "approved" -> log.atInfo();
+            case "rejected" -> log.atWarn();
+            default -> log.atError();
+        };
+        event.addKeyValue("event", "payment.gateway_completed")
+                .addKeyValue("paymentNumber", attempt.paymentNumber())
+                .addKeyValue("gatewayOrderId", gatewayOrderId)
+                .addKeyValue("durationMs", durationMs)
+                .addKeyValue("outcome", outcome);
+        addFailureCode(event, failureCode);
+        event.log();
+    }
+
+    private void addFailureCode(org.slf4j.spi.LoggingEventBuilder event, String failureCode) {
+        if (failureCode != null && !failureCode.isBlank()) {
+            event.addKeyValue("failureCode", failureCode);
         }
     }
 

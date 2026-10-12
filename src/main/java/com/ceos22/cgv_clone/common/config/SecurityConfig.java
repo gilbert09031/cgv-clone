@@ -2,6 +2,7 @@ package com.ceos22.cgv_clone.common.config;
 
 import com.ceos22.cgv_clone.common.security.CustomAccessDeniedHandler;
 import com.ceos22.cgv_clone.common.security.CustomAuthenticationEntryPoint;
+import com.ceos22.cgv_clone.common.logging.RequestLoggingFilter;
 import com.ceos22.cgv_clone.domain.auth.jwt.JwtAuthenticationFilter;
 import com.ceos22.cgv_clone.domain.auth.security.CustomUserDetailsService;
 import com.ceos22.cgv_clone.domain.member.repository.MemberRepository;
@@ -108,7 +109,8 @@ public class SecurityConfig {
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
         // 허용할 헤더
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", RequestLoggingFilter.REQUEST_ID_HEADER));
+        configuration.setExposedHeaders(List.of(RequestLoggingFilter.REQUEST_ID_HEADER));
 
         // 자격 증명 허용
         configuration.setAllowCredentials(false);

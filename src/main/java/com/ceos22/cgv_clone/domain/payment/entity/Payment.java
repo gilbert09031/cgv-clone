@@ -79,10 +79,6 @@ public class Payment {
         return this.memberId.equals(memberId);
     }
 
-    /**
-     * 결제창을 띄울 때마다 호출한다. 토스가 orderId 재사용을 막으므로(2026-09-11 확인) 시도마다 새 번호를 발급한다
-     * @return 게이트웨이에 주문 식별자로 보낼 번호
-     */
     public String startAttempt(LocalDateTime attemptedAt) {
         validateOpen();
         String gatewayOrderId = nextGatewayOrderId();

@@ -2,6 +2,7 @@ package com.ceos22.cgv_clone.domain.reservation.service;
 
 import com.ceos22.cgv_clone.common.error.CustomException;
 import com.ceos22.cgv_clone.common.error.ErrorCode;
+import com.ceos22.cgv_clone.common.logging.TransactionLog;
 import com.ceos22.cgv_clone.domain.member.entity.Member;
 import com.ceos22.cgv_clone.domain.member.repository.MemberRepository;
 import com.ceos22.cgv_clone.domain.payment.entity.PaymentTargetType;
@@ -17,11 +18,13 @@ import com.ceos22.cgv_clone.domain.reservation.repository.ScheduleRepository;
 import com.ceos22.cgv_clone.domain.reservation.repository.ScheduleSeatRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,7 +36,6 @@ public class ReservationService {
 
     // TODO: replace with ScreenType x AudienceType pricing once price rules are decided
     private static final int TICKET_PRICE = 10_000;
-
     private final ReservationRepository reservationRepository;
     private final MemberRepository memberRepository; // MemberRepository 주입
     private final ScheduleRepository scheduleRepository;
@@ -44,7 +46,7 @@ public class ReservationService {
         Member member = findMemberById(memberId);
         Schedule schedule = findScheduleById(request.scheduleId());
 
-        releasePendingReservations(member, schedule);
+        List<Reservation> replacedReservations = releasePendingReservations(member, schedule);
 
         List<Long> scheduleSeatIds = request.scheduleSeatIds().stream().distinct().toList();
         List<ScheduleSeat> seats = scheduleSeatRepository.findAllForUpdate(schedule.getScheduleId(), scheduleSeatIds);
@@ -61,6 +63,9 @@ public class ReservationService {
         reservation.holdSeats(seats, now);
         reservationRepository.save(reservation);
 
+        logReservationCreated(reservation);
+        replacedReservations.forEach(replaced -> logReservationReplaced(replaced, reservation));
+
         return ReservationResponse.from(reservation);
     }
 
@@ -70,7 +75,7 @@ public class ReservationService {
      * @throws CustomException SEAT_HOLD_EXPIRED when a seat is no longer held by this reservation
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void preemptSeatsForPayment(Long reservationId) {
+    public void preemptSeatsForPayment(Long reservationId, String paymentNumber, String gatewayOrderId) {
         Reservation reservation = findReservationWithSeats(reservationId);
 
         List<ScheduleSeat> lockedSeats = scheduleSeatRepository.findAllForUpdateByReservationId(reservationId);
@@ -79,24 +84,22 @@ public class ReservationService {
         }
         reservation.extendHold(LocalDateTime.now());
 
-        log.info("event=reservation.seats_preempted, reservationId={}, seats={}", reservationId, lockedSeats.size());
+        logReservationSeatsPreempted(reservation, paymentNumber, gatewayOrderId);
     }
 
     // Payment is confirmed, so this only transits the reservation state
     @Transactional(propagation = Propagation.MANDATORY)
-    public void confirmReservationAfterPayment(Long reservationId) {
+    public void confirmReservationAfterPayment(Long reservationId, String paymentNumber, String gatewayOrderId) {
         Reservation reservation = findReservationWithSeats(reservationId);
         reservation.confirm();
 
-        log.info("event=reservation.confirmed, reservationId={}", reservationId);
+        logReservationConfirmed(reservationId, paymentNumber, gatewayOrderId);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void cancelReservationAfterPaymentCancel(Long reservationId) {
         Reservation reservation = findReservationWithSeats(reservationId);
         reservation.cancel();
-
-        log.info("event=reservation.cancelled, reservationId={}", reservationId);
     }
 
     @Transactional(readOnly = true)
@@ -127,7 +130,7 @@ public class ReservationService {
                 .orElseThrow(() -> new CustomException(ErrorCode.SCHEDULE_NOT_FOUND));
     }
 
-    private void releasePendingReservations(Member member, Schedule schedule) {
+    private List<Reservation> releasePendingReservations(Member member, Schedule schedule) {
         List<Reservation> pendingReservations = reservationRepository
                 .findAllWithSeatsByMemberAndScheduleAndStatus(member, schedule, ReservationStatus.PENDING);
 
@@ -137,6 +140,7 @@ public class ReservationService {
             }
             reservation.cancel();
         }
+        return pendingReservations;
     }
 
     private int totalPriceOf(List<ScheduleSeat> seats) {
@@ -146,5 +150,74 @@ public class ReservationService {
     public List<Reservation> findReservationByMember(Member member) {
         return reservationRepository.findByMember(member)
                 .orElseThrow(() -> new CustomException(ErrorCode.RESOURCE_NOT_FOUND));
+    }
+
+    private void logReservationCreated(Reservation reservation) {
+        Long reservationId = reservation.getReservationId();
+        Long scheduleId = reservation.getSchedule().getScheduleId();
+        int seatCount = reservation.getReservationSeats().size();
+        Integer amount = reservation.getTotalPrice();
+        String holdExpiresAt = holdExpiresAtOf(reservation);
+        TransactionLog.afterCommit(() -> {
+            LoggingEventBuilder event = log.atInfo()
+                    .addKeyValue("event", "reservation.created")
+                    .addKeyValue("reservationId", reservationId)
+                    .addKeyValue("scheduleId", scheduleId)
+                    .addKeyValue("seatCount", seatCount)
+                    .addKeyValue("amount", amount);
+            addHoldExpiresAt(event, holdExpiresAt).log();
+        });
+    }
+
+    private void logReservationReplaced(Reservation reservation, Reservation replacement) {
+        Long reservationId = reservation.getReservationId();
+        Long replacementReservationId = replacement.getReservationId();
+        TransactionLog.afterCommit(() -> log.atInfo()
+                .addKeyValue("event", "reservation.cancelled")
+                .addKeyValue("reservationId", reservationId)
+                .addKeyValue("replacementReservationId", replacementReservationId)
+                .addKeyValue("reason", "reservation_replaced")
+                .log());
+    }
+
+    private void logReservationSeatsPreempted(Reservation reservation, String paymentNumber, String gatewayOrderId) {
+        Long reservationId = reservation.getReservationId();
+        Long scheduleId = reservation.getSchedule().getScheduleId();
+        int seatCount = reservation.getReservationSeats().size();
+        String holdExpiresAt = holdExpiresAtOf(reservation);
+        TransactionLog.afterCommit(() -> {
+            LoggingEventBuilder event = log.atInfo()
+                    .addKeyValue("event", "reservation.seats_preempted")
+                    .addKeyValue("reservationId", reservationId)
+                    .addKeyValue("scheduleId", scheduleId)
+                    .addKeyValue("seatCount", seatCount)
+                    .addKeyValue("paymentNumber", paymentNumber)
+                    .addKeyValue("gatewayOrderId", gatewayOrderId);
+            addHoldExpiresAt(event, holdExpiresAt).log();
+        });
+    }
+
+    private void logReservationConfirmed(Long reservationId, String paymentNumber, String gatewayOrderId) {
+        TransactionLog.afterCommit(() -> log.atInfo()
+                .addKeyValue("event", "reservation.confirmed")
+                .addKeyValue("reservationId", reservationId)
+                .addKeyValue("paymentNumber", paymentNumber)
+                .addKeyValue("gatewayOrderId", gatewayOrderId)
+                .log());
+    }
+
+    private String holdExpiresAtOf(Reservation reservation) {
+        return reservation.getReservationSeats().stream()
+                .map(reservationSeat -> reservationSeat.getScheduleSeat().getHoldExpiresAt())
+                .findFirst()
+                .map(holdExpiresAt -> holdExpiresAt.atZone(ZoneId.systemDefault()).toOffsetDateTime().toString())
+                .orElse(null);
+    }
+
+    private LoggingEventBuilder addHoldExpiresAt(LoggingEventBuilder event, String holdExpiresAt) {
+        if (holdExpiresAt == null) {
+            return event;
+        }
+        return event.addKeyValue("holdExpiresAt", holdExpiresAt);
     }
 }

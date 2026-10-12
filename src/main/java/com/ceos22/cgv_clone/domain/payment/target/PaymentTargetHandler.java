@@ -21,10 +21,10 @@ public interface PaymentTargetHandler {
      * Called in the preemption transaction, before the gateway is asked to approve.
      * Reserves what the target needs to be fulfilled (e.g. stock). Throwing aborts the approval before any money moves
      */
-    void onApprovalStarted(Long targetId);
+    void onApprovalStarted(Long targetId, String paymentNumber, String gatewayOrderId);
 
     /** Called after the approval is recorded. Only a state transition; must not fail for business reasons */
-    void onApproved(Long targetId);
+    void onApproved(Long targetId, String paymentNumber, String gatewayOrderId);
 
     /** Called after a gateway rejection is recorded. Releases what onApprovalStarted reserved */
     void onApprovalFailed(Long targetId);
