@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-@Slf4j
 @Component
+@Slf4j
 @RequiredArgsConstructor
 public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
@@ -25,7 +25,11 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
             HttpServletResponse response,
             AccessDeniedException accessDeniedException
     ) throws IOException {
-        log.warn("권한이 부족한 요청 - {} {}", request.getMethod(), request.getRequestURI());
+        log.atDebug()
+                .addKeyValue("event", "auth.authorization_rejected")
+                .addKeyValue("errorCode", ErrorCode.AUTHORIZATION_FAILED.getCode())
+                .addKeyValue("statusCode", ErrorCode.AUTHORIZATION_FAILED.getStatus().value())
+                .log();
         errorResponseWriter.write(response, ErrorCode.AUTHORIZATION_FAILED);
     }
 }

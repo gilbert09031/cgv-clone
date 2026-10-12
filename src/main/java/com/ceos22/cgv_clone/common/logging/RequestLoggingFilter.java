@@ -15,7 +15,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 @Component
@@ -36,12 +35,9 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         }
 
         Map<String, String> previousContext = MDC.getCopyOfContextMap();
-        long startedAt = System.nanoTime();
         boolean completed = false;
         try {
             MDC.put("requestId", requestId);
-            MDC.put("httpMethod", request.getMethod());
-            MDC.put("requestPath", request.getRequestURI());
 
             response.setHeader(REQUEST_ID_HEADER, requestId);
 
@@ -49,20 +45,10 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             completed = true;
         } finally {
             try {
-                if (!request.isAsyncStarted()) {
-                    long durationMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
-                    if (completed) {
-                        log.atInfo()
-                                .addKeyValue("event", "http.request.completed")
-                                .addKeyValue("statusCode", response.getStatus())
-                                .addKeyValue("durationMs", durationMs)
-                                .log();
-                    } else {
-                        log.atWarn()
-                                .addKeyValue("event", "http.request.failed")
-                                .addKeyValue("durationMs", durationMs)
-                                .log();
-                    }
+                if (!completed) {
+                    log.atError()
+                            .addKeyValue("event", "http.request.failed")
+                            .log();
                 }
             } finally {
                 if (previousContext == null) {

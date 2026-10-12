@@ -13,8 +13,8 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
-@Slf4j
 @Component
+@Slf4j
 @RequiredArgsConstructor
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
@@ -31,8 +31,11 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
                 ? ErrorCode.MISSING_TOKEN
                 : ErrorCode.INVALID_TOKEN;
 
-        log.warn("인증되지 않은 요청 [{}] - {} {}",
-                errorCode.getCode(), request.getMethod(), request.getRequestURI());
+        log.atDebug()
+                .addKeyValue("event", "auth.authentication_rejected")
+                .addKeyValue("errorCode", errorCode.getCode())
+                .addKeyValue("statusCode", errorCode.getStatus().value())
+                .log();
         errorResponseWriter.write(response, errorCode);
     }
 }
